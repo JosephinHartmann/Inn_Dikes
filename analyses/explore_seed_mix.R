@@ -9,7 +9,7 @@ available_specs <- read.csv2(
 )
 
 # Create the plot, excluding type = "hemi"
-ggplot(subset(available_specs, type != "hemi"), aes(x = log(seedmass), y = log(sla), color = as.factor(type))) +
+p1 <- ggplot(subset(available_specs, type != "hemi"), aes(x = log(seedmass), y = log(sla), color = as.factor(type))) +
   geom_point() +  # Add points
   stat_smooth(method = "lm", aes(group = as.factor(type)), se = FALSE, linetype = "dashed") +  # Add regression lines
   labs(
@@ -20,8 +20,17 @@ ggplot(subset(available_specs, type != "hemi"), aes(x = log(seedmass), y = log(s
   theme_minimal() +  # Minimal theme for better appearance
   theme(legend.position = "right")  # Place legend on the right
 
+# Save figure
+ggsave(
+  here("figures", "seed_mix_type_plot.png"),
+  plot = p1,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
 ###
-ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R1A))) +
+p2 <- ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R1A))) +
   geom_point() +  # Add points
   stat_smooth(method = "lm", aes(group = as.factor(R1A)), se = FALSE, linetype = "dashed") +  # Add regression lines
   labs(
@@ -32,8 +41,17 @@ ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R
   theme_minimal() +  # Minimal theme for better appearance
   theme(legend.position = "right")  # Place legend on the right
 
+# Save figure
+ggsave(
+  here("figures", "seed_mix_R1A_plot.png"),
+  plot = p2,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
 ###
-ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R22))) +
+p3 <- ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R22))) +
   geom_point() +  # Add points
   stat_smooth(method = "lm", aes(group = as.factor(R22)), se = FALSE, linetype = "dashed") +  # Add regression lines
   labs(
@@ -43,3 +61,12 @@ ggplot(available_specs, aes(x = log(seedmass), y = log(sla), color = as.factor(R
   ) +
   theme_minimal() +  # Minimal theme for better appearance
   theme(legend.position = "right")  # Place legend on the right
+
+# Save figure
+ggsave(
+  here("figures", "seed_mix_R22_plot.png"),
+  plot = p3,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
