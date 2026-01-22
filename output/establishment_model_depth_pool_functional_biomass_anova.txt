@@ -1,0 +1,15 @@
+Anova Table (Type II tests)
+
+Response: establishment_prop_Aug_25
+                                              Sum Sq Df F value  Pr(>F)  
+substrate_depth                              0.00008  1  0.0060 0.93856  
+species_pool                                 0.06948  1  5.2243 0.02503 *
+functional_type                              0.00014  1  0.0107 0.91774  
+biomass                                      0.02073  1  1.5584 0.21568  
+substrate_depth:species_pool                 0.02827  1  2.1261 0.14888  
+substrate_depth:functional_type              0.00177  1  0.1329 0.71640  
+species_pool:functional_type                 0.00330  1  0.2482 0.61974  
+substrate_depth:species_pool:functional_type 0.00001  1  0.0009 0.97577  
+Residuals                                    1.02400 77                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1

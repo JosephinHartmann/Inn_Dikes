@@ -1,0 +1,8 @@
+Model: establishment_model_depth_pool_functional_biomass
+
+Description:
+Three-way interaction model with biomass as covariate. Examines establishment rate as a function of substrate depth, species pool, functional type, and biomass. Tests whether biomass explains additional variation beyond the three-way interaction.
+
+Generated from: Z:/VERBUND_MAC/R/Inn_Dikes/text_Rmd
+Date: 2026-01-22
+

@@ -1,0 +1,28 @@
+
+Call:
+lm(formula = establishment_prop_Aug_25 ~ substrate_depth * species_pool * 
+    functional_type + biomass, data = header_2)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-0.34701 -0.07503  0.00070  0.07410  0.28460 
+
+Coefficients:
+                                                     Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                                         3.585e-01  4.918e-02   7.290 2.33e-10 ***
+substrate_depth                                    -4.223e-04  2.327e-03  -0.181    0.856    
+species_poolR22                                    -1.057e-01  6.971e-02  -1.516    0.134    
+functional_typelow                                  3.189e-02  6.972e-02   0.457    0.649    
+biomass                                            -2.089e-04  1.673e-04  -1.248    0.216    
+substrate_depth:species_poolR22                     2.235e-03  2.174e-03   1.028    0.307    
+substrate_depth:functional_typelow                 -6.165e-04  2.208e-03  -0.279    0.781    
+species_poolR22:functional_typelow                 -2.762e-02  9.866e-02  -0.280    0.780    
+substrate_depth:species_poolR22:functional_typelow  9.502e-05  3.119e-03   0.030    0.976    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.1153 on 77 degrees of freedom
+  (34 Beobachtungen als fehlend gelöscht)
+Multiple R-squared:  0.1599,	Adjusted R-squared:  0.07256 
+F-statistic: 1.831 on 8 and 77 DF,  p-value: 0.08384
+

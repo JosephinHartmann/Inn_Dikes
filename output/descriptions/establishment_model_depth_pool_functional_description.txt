@@ -1,0 +1,8 @@
+Model: establishment_model_depth_pool_functional
+
+Description:
+Three-way interaction model examining establishment rate as a function of substrate depth, species pool (R1A vs R22), and functional type (high vs low SLA). Tests for interactions between all three factors.
+
+Generated from: Z:/VERBUND_MAC/R/Inn_Dikes/text_Rmd
+Date: 2026-01-22
+
