@@ -14,6 +14,8 @@ All species which occurred 2025 and the amount of plots in which they appeared (
 # Part 1 data preparation
 ```{r setup}
 library(here)
+library(dplyr)
+library(ggplot2)
 ```
 
 ```{r}
@@ -211,10 +213,8 @@ boxplot(establishment_prop_Aug_25~functional_type*species_pool, data = header_2)
 plot(establishment_prop_Aug_25~substrate_depth,data = header_2)
 boxplot(establishment_prop_Aug_25~substrate_depth*species_pool,data = header_2)
 ```
-```{r}
-library(dplyr)
-library(ggplot2)
 
+```{r}
 # 1. Summarize data: mean & SE for each depth × species_pool
 df_summary <- header_2 %>%
   filter(species_pool != "DRUSCH") %>%
@@ -247,7 +247,17 @@ ggplot(df_summary,
        x = "Substrate Depth") +
 
   theme_bw()
+
+# Save figure
+ggsave(
+  here("figures", "est_subs.png"),
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 ```
+
+
 ```{r}
 df_summary_2 <- header_2 %>%
   filter(species_pool != "DRUSCH") %>%
@@ -287,6 +297,14 @@ ggplot(df_summary_2,
   ) +
 
   theme_bw()
+
+# Save figure
+ggsave(
+  here("figures", "establishment_by_depth_pool_functional.png"),
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
 
 ```{r}
@@ -309,7 +327,16 @@ ggplot(df_summary_2,
        y = "Establishment (mean ± SE)",
        x = "Substrate Depth") +
   theme_bw()
+
+# Save figure
+ggsave(
+  here("figures", "establishment_by_depth_pool_functional_facet.png"),
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
+
 ```{r}
 ggplot(data = header_2, aes(x = biomass, y = establishment_prop_Aug_25, color = factor(species_pool))) +
      geom_point(aes(alpha = "Observed"), size = 3) +
@@ -318,6 +345,13 @@ ggplot(data = header_2, aes(x = biomass, y = establishment_prop_Aug_25, color = 
                         values = c(1, 1),
                         breaks = c("Observed", "Fitted") )
 
+# Save figure
+ggsave(
+  here("figures", "establishment_by_biomass_pool.png"),
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 ```
 
 ```{r}
@@ -403,12 +437,27 @@ calc_establishment <- function(df_sown, df_observed, year_label = NULL) {
 # Year 1
 res_year1 <- calc_establishment(df_sown, df_observed, year_label = "Aug_25")
 
-# Year 2
-res_year2 <- calc_establishment(df_sown, df_observed2, year_label = "Apr_25")
+# Year 2 (if df_observed2 exists - uncomment when data is available)
+# res_year2 <- calc_establishment(df_sown, df_observed2, year_label = "Apr_25")
+# result_species <- rbind(res_year1, res_year2)
 
-# Combine both years
-result_species <- rbind(res_year1, res_year2)
+# For now, use only year 1
+result_species <- res_year1
 print(result_species)
+
+# Save results to output folder
+write.csv(
+  result_species,
+  here("output", "establishment_rates_species.csv"),
+  row.names = FALSE
+)
+
+# Save plot summary
+write.csv(
+  plot_summary_year1,
+  here("output", "establishment_rates_plots.csv"),
+  row.names = FALSE
+)
 ```
 
 
