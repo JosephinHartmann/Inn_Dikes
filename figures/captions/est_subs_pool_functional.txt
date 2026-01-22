@@ -1,0 +1,16 @@
+Figure: est_subs_pool_functional
+
+Description:
+Establishment rate by substrate depth, separated by species pool (R1A vs R22) and functional type (high vs low SLA). Shows mean establishment with standard error bars across different substrate depths.
+
+Details:
+- X-axis: Substrate depth (cm)
+- Y-axis: Mean establishment rate with standard error bars
+- Colors: Species pool (R1A, R22)
+- Linetype/Shape: Functional type (high SLA, low SLA)
+- Analysis: Linear model with standard error bars
+- Generated from: text_Rmd/establishment_rates.Rmd
+
+Generated from: Z:/VERBUND_MAC/R/Inn_Dikes/text_Rmd
+Date: 2026-01-22
+
