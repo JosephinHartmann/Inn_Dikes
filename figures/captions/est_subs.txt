@@ -1,0 +1,15 @@
+Figure: Establishment by Substrate Depth
+
+Description:
+This figure shows the establishment rate of sown species as a function of substrate depth, 
+separated by species pool (R1A and R22). 
+
+Details:
+- X-axis: Substrate depth (cm)
+- Y-axis: Mean establishment rate with standard error bars
+- Colors: Different species pools
+- Analysis: Linear model with standard error bars
+
+Generated from: text_Rmd/establishment_rates.Rmd (line ~230-257)
+Date: [Auto-updated when figure is regenerated]
+

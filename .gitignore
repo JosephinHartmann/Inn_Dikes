@@ -33,6 +33,11 @@
 *.docx
 *.pptx
 
+# But allow figures README and captions
+!figures/README.md
+!figures/captions/
+!figures/captions/*.txt
+
 # But keep data/raw and data/processed structure
 !data/raw/**
 !data/processed/**

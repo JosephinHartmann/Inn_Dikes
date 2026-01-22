@@ -1,0 +1,8 @@
+Figure: RDA Analysis of Seed Mixtures
+
+Description:
+Redundancy Analysis (RDA) of seed mixture compositions.
+
+Generated from: [Original analysis script]
+Date: [Original date]
+
