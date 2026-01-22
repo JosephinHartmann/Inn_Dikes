@@ -1,0 +1,95 @@
+---
+title: "early_establishment"
+author: "J.Hartmann"
+date: "2025-06-12"
+output: html_document
+---
+
+### Information
+I made two pictures per plot at the dike, one in the lower part and one in the upper part with a box to ensure the pictures are comparable (TODo: describe methods more detailed).
+Those pictures are done regularly, to track the establishment of the seed mixtures at the dike.
+I wrote a python script using OpenCV (computer vision library) to detect the amount of green pixels within each picture. Beforehand the color space defining "green pixels" was adjusted for each observation campaign and each picture in order to double check, whether the filtered hsv range matched with green colours of seedlings. By doing so, colours rather resembling darker green algae or greenish stones (or similar) were (mostly) excluded from the detection and leafy parts rather occurring yellowish or white were included - if neccessary. 
+
+- timesincesowing is the continuous variable time in days since sowing event
+- "U" and "O" is the factorial variable to describe whether the observation comes from lower ("U") or upper part ("O") within each plot
+- R1A_low, R1A_high, R22_low, R22_high are the four seed-mixture types (compare Methods_Verbund.Rmd)
+
+- greenpixelratio is the amount of green pixels found within each picture - it is the response variable and a proxy for the amount of seedlings and plants that have established within the plot 
+
+
+Questions: 
+1) Are there differences in the establishment when comparing lower and upper part of the dike?
+2) Are there differences in the establishment between species pools or SLA-types over time?
+3) Are there differences in the establishment between different soil-substrate-depths?
+
+Models: 
+greenpixels ~ substrate_depth * species_pool * SLA_type * slope_position * time + random:plot
+
+- plot to account for several observations per plot over time
+
+Todo: greenpixels is a ratio (ranging between 0-100) might either need transformation or beta-distribution
+
+
+## preparation 
+```{r}
+library(here)
+library(dplyr)
+library(readr)
+#library(openxlsx)
+library(tidyr)
+```
+
+### combine output data from python script with information on plots 
+```{r}
+composition <- read_csv(here("data/raw/data_raw_compositions_sla_210_230.csv"))
+green_pixels <- read.table(here("data/raw/Bildstrecke_Thansau_1_updated.txt"), sep=",", header = T)
+green_pix_Happing <- read.table(here("data/raw/Bildstrecke_Happing_1_updated.txt"), header = T)
+plots <- read.csv(here("data/raw/plots.csv"), sep=";", header = T)
+
+df_combined <- composition %>%
+  group_by(id_plot) %>%
+  mutate(
+    avg_SLA = mean((sla*ratio), na.rm = TRUE),
+    avg_seedmass = mean(seedmass, na.rm =TRUE),
+    pool = first(pool),
+    trait_constraint = first(trait_constraint),
+    seedmix_type = first(seedmix_type)
+  )
+
+df_wide <- df_combined %>%
+  select(id_plot, pool, trait_constraint, seedmix_type, avg_SLA, avg_seedmass,accepted_name, ratio) %>% 
+  pivot_wider(
+    names_from = accepted_name,   # each species becomes a column
+    values_from = ratio           # the cell value will be the ratio
+  )
+
+df_header <- df_wide %>% select(id_plot, pool, trait_constraint, seedmix_type, avg_SLA, avg_seedmass)
+
+green_pixels$PLOT_ID_new <- as.factor(green_pixels$PLOT_ID_new)
+green_pix_Happing$PLOT_ID_new <- as.factor(green_pix_Happing$PLOT_ID_new)
+
+green_pixels <- green_pixels[,c(5,6,13)]
+green_pix_Happing <- green_pix_Happing[c(5,8,13)]
+
+green_pixelDF <- rbind(green_pix_Happing,green_pixels)
+
+df_header$id_plot <- as.factor(df_header$id_plot)
+
+df_header <- left_join(df_header, green_pixelDF, by=c("id_plot" = "PLOT_ID_new"))
+df_header_plots <- left_join(df_header, plots, by=c("id_plot" = "plot_id"))
+header <- df_header_plots %>% select(,c(1:8,13:18))
+colnames(header)[7] <- "slope_position"
+```
+
+
+```{r}
+plot(green_pixel_ratio_1 ~ substrate_depth, data = header)
+boxplot(green_pixel_ratio_1 ~ slope_position*substrate_depth, data = header)
+boxplot(green_pixel_ratio_1 ~ slope_position, data = header)
+boxplot(green_pixel_ratio_1 ~ seedmix_type, data = header)
+boxplot(green_pixel_ratio_1 ~ slope_position*seedmix_type, data = header)
+boxplot(green_pixel_ratio_1 ~ exposition, data = header)
+```
+
+
+

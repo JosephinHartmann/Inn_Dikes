@@ -1,0 +1,548 @@
+---
+title: "Establishment rates"
+output: html_notebook
+---
+
+# Part 1 - sown species 
+Establishment rate of sown species. Indicated is the number of sown plots and the percentage of these plots that were occupied by the respective species (presence-absence data). For each species only the sown plots were included. Species are ordered by their establishment success within the first year. 
+
+
+# Part 2 - spontaneous species
+All species which occurred 2025 and the amount of plots in which they appeared (maximum 116 plots in the first year;). In total, xx different species were found of which xx were seeded. Species are ordered by their establishment success. 
+
+
+# Part 1 data preparation
+```{r setup}
+library(here)
+```
+
+```{r}
+df_sown <- read.table(
+  here("data", "raw", "df_sown_species.txt"),
+  header = TRUE,
+  sep = "\t",
+  check.names = FALSE
+)
+
+# Check first column (likely species names)
+head(df_sown[, 1])
+
+# Make unique names automatically (adds .1, .2, etc. to duplicates)
+rownames(df_sown) <- make.unique(as.character(df_sown[, 1]))
+
+# Drop the first column if it was only names
+df_sown <- df_sown[, -1]
+```
+
+# insert vegetation data
+```{r}
+Inn_Dike_species <- read.csv2(
+  here("data", "raw", "Inn_Dike_species.csv"),
+  row.names = 1,     # use first column as rownames
+  stringsAsFactors = FALSE,  # prevent automatic factor conversion
+  check.names = FALSE       # preserve original column names
+)
+
+# Check
+View(Inn_Dike_species)
+```
+
+```{r}
+cols_to_keep <- which(Inn_Dike_species[6,] == 0.42)
+df_observed <- Inn_Dike_species[, cols_to_keep, drop = FALSE]
+colnames(df_observed) <- df_observed[1, ]      # first row becomes column names
+df_observed <- df_observed[-1, , drop = FALSE]  # remove the first row
+```
+
+
+```{r}
+# Find only plots that exist in BOTH data frames
+plots_to_use <- intersect(colnames(df_sown), colnames(df_observed))
+
+# Then safely subset
+df_obs_sub <- df_observed[, plots_to_use, drop = FALSE]
+df_sown_sub <- df_sown[, plots_to_use, drop = FALSE]
+```
+
+```{r}
+# important information: cols that exist in df_son, but are missing in df_observed
+setdiff(colnames(df_sown), colnames(df_observed))
+```
+
+```{r}
+# Convert to matrices
+mat_sown <- as.matrix(df_sown_sub)
+mat_observed <- as.matrix(df_obs_sub)
+
+# Convert all values to character (mixed types work)
+mat_sown_char <- as.character(mat_sown)
+mat_observed_char <- as.character(mat_observed)
+
+# Conversion rule:
+#  - "0", "", "NA", or NA → 0
+#  - anything else (any value or text) → 1
+mat_sown_num <- ifelse(is.na(mat_sown_char) | mat_sown_char %in% c("0", "", "NA"), 0, 1)
+mat_observed_num <- ifelse(is.na(mat_observed_char) | mat_observed_char %in% c("0", "", "NA"), 0, 1)
+
+# Preserve matrix dimensions and names
+dim(mat_sown_num) <- dim(mat_sown)
+dim(mat_observed_num) <- dim(mat_observed)
+rownames(mat_sown_num) <- rownames(mat_sown)
+colnames(mat_sown_num) <- colnames(mat_sown)
+rownames(mat_observed_num) <- rownames(mat_observed)
+colnames(mat_observed_num) <- colnames(mat_observed)
+
+# Convert to integer matrices for numeric operations
+mat_sown <- matrix(as.integer(mat_sown_num), nrow = nrow(mat_sown),
+                   dimnames = dimnames(mat_sown))
+mat_observed <- matrix(as.integer(mat_observed_num), nrow = nrow(mat_observed),
+                       dimnames = dimnames(mat_observed))
+```
+
+```{r}
+species_list <- rownames(mat_sown)
+out_list <- vector("list", length(species_list))
+names(out_list) <- species_list
+
+for (sp in species_list) {
+  # Logical vector of sown plots
+  sown_mask <- as.logical(mat_sown[sp, , drop = TRUE])
+  n_sown <- sum(sown_mask)
+  
+  if (n_sown == 0) {
+    out_list[[sp]] <- list(species = sp,
+                           n_sown = 0L,
+                           n_established = NA_real_,
+                           establishment_rate = NA_real_)
+    next
+  }
+  
+  # If species missing in observed data, assume not established anywhere
+  if (!(sp %in% rownames(mat_observed))) {
+    n_established <- 0L
+  } else {
+    observed_in_sown <- mat_observed[sp, sown_mask, drop = TRUE]
+    n_established <- sum(as.integer(observed_in_sown == 1))
+  }
+  
+  rate <- n_established / n_sown
+  
+  out_list[[sp]] <- list(species = sp,
+                         n_sown = as.integer(n_sown),
+                         n_established = as.integer(n_established),
+                         establishment_rate = as.numeric(rate))
+}
+
+# Combine into final data frame
+result_species <- do.call(rbind, lapply(out_list, function(x)
+  data.frame(species = x$species,
+             n_sown = x$n_sown,
+             n_established = x$n_established,
+             establishment_rate = x$establishment_rate,
+             stringsAsFactors = FALSE)))
+rownames(result_species) <- NULL
+```
+
+```{r}
+calc_per_plot <- function(df_sown, df_observed, year_label = NULL) {
+  
+  # Only keep shared plots and species
+  plots_to_use <- intersect(colnames(df_sown), colnames(df_observed))
+  if(length(plots_to_use) == 0) stop("No plots in common between sown and observed!")
+  
+  species_to_use <- intersect(rownames(df_sown), rownames(df_observed))
+  if(length(species_to_use) == 0) stop("No species in common between sown and observed!")
+  
+  # Subset matrices
+  mat_sown <- as.matrix(df_sown[species_to_use, plots_to_use, drop = FALSE])
+  mat_observed <- as.matrix(df_observed[species_to_use, plots_to_use, drop = FALSE])
+  
+  # Convert to 0/1
+  mat_sown <- ifelse(is.na(mat_sown) | mat_sown %in% c("0", "", "NA"), 0, 1)
+  mat_observed <- ifelse(is.na(mat_observed) | mat_observed %in% c("0", "", "NA"), 0, 1)
+  
+  # Element-wise multiplication
+  established_mat <- mat_sown * mat_observed
+  
+  # Per-plot summary
+  res_plot <- data.frame(
+    plot = colnames(mat_sown),
+    n_sown_species = colSums(mat_sown),
+    n_established_species = colSums(established_mat)
+  )
+  
+  # Dynamically name establishment proportion column
+  if (!is.null(year_label)) {
+    colname <- paste0("establishment_prop_", year_label)
+    res_plot[[colname]] <- colSums(established_mat) / colSums(mat_sown)
+  } else {
+    res_plot$establishment_prop <- colSums(established_mat) / colSums(mat_sown)
+  }
+  
+  return(res_plot)
+}
+
+plot_summary_year1 <- calc_per_plot(df_sown, df_observed, year_label = "Aug_25")
+```
+
+## Is the establishment rate affected by substrate depth and does it depend on the species pool?
+```{r}
+header_new <- read.csv2(
+  here("data", "raw", "biomasse.csv"),
+  stringsAsFactors = FALSE,  # prevent automatic factor conversion
+  check.names = FALSE       # preserve original column names
+)
+
+# Check
+View(header_new)
+```
+
+```{r}
+names(header_new)
+names(header_new)[7] <- "plot"
+
+header_2 <- full_join(header_new, plot_summary_year1, by="plot")
+View(header_2)
+```
+
+```{r}
+boxplot(establishment_prop_Aug_25~species_pool, data = header_2, na.rm=F)
+boxplot(establishment_prop_Aug_25~functional_type*species_pool, data = header_2)
+plot(establishment_prop_Aug_25~substrate_depth,data = header_2)
+boxplot(establishment_prop_Aug_25~substrate_depth*species_pool,data = header_2)
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Summarize data: mean & SE for each depth × species_pool
+df_summary <- header_2 %>%
+  filter(species_pool != "DRUSCH") %>%
+  group_by(substrate_depth, species_pool) %>%
+  summarise(
+    mean_est = mean(establishment_prop_Aug_25, na.rm = TRUE),
+    se_est   = sd(establishment_prop_Aug_25, na.rm = TRUE) /
+               sqrt(n()),
+    .groups = "drop"
+  )
+
+# 2. Plot mean ± SE for each group (species_pool)
+ggplot(df_summary, 
+       aes(x = substrate_depth, 
+           y = mean_est, 
+           color = factor(species_pool))) +
+
+  #geom_line(size = 1) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = T)+
+
+  # Standard error bars
+  geom_errorbar(aes(ymin = mean_est - se_est,
+                    ymax = mean_est + se_est),
+                width = 0.1,
+                linewidth = 0.8) +
+
+  labs(color = "Species Pool",
+       y = "Establishment (mean ± SE)",
+       x = "Substrate Depth") +
+
+  theme_bw()
+```
+```{r}
+df_summary_2 <- header_2 %>%
+  filter(species_pool != "DRUSCH") %>%
+  group_by(substrate_depth, species_pool,functional_type) %>%
+  summarise(
+    mean_est = mean(establishment_prop_Aug_25, na.rm = TRUE),
+    se_est   = sd(establishment_prop_Aug_25, na.rm = TRUE) /
+               sqrt(n()),
+    .groups = "drop"
+  )
+
+# 2. Plot mean ± SE for each group (species_pool)
+ggplot(df_summary_2, 
+       aes(x = substrate_depth, 
+           y = mean_est, 
+           color = species_pool,
+           linetype = functional_type)) +
+
+  geom_point(aes(shape = functional_type), size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+
+  geom_errorbar(aes(ymin = mean_est - se_est,
+                    ymax = mean_est + se_est),
+                width = 0.1,
+                linewidth = 0.8) +
+
+  labs(color = "Species Pool",
+       linetype = "Functional Type",
+       shape = "Functional Type",
+       y = "Establishment (mean ± SE)",
+       x = "Substrate Depth") +
+
+  guides(
+    color = guide_legend(order = 1),
+    linetype = guide_legend(order = 2),
+    shape = guide_legend(order = 2)
+  ) +
+
+  theme_bw()
+```
+
+```{r}
+ggplot(df_summary_2, 
+       aes(x = substrate_depth, 
+           y = mean_est, 
+           color = functional_type)) +
+
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+
+  geom_errorbar(aes(ymin = mean_est - se_est,
+                    ymax = mean_est + se_est),
+                width = 0.1,
+                linewidth = 0.8) +
+
+  facet_wrap(~ species_pool) +
+
+  labs(color = "CWM SLA",
+       y = "Establishment (mean ± SE)",
+       x = "Substrate Depth") +
+  theme_bw()
+```
+```{r}
+ggplot(data = header_2, aes(x = biomass, y = establishment_prop_Aug_25, color = factor(species_pool))) +
+     geom_point(aes(alpha = "Observed"), size = 3) +
+     geom_smooth(method = "lm", se = T, aes(alpha = "Fitted") ) +
+     scale_alpha_manual(name = NULL,
+                        values = c(1, 1),
+                        breaks = c("Observed", "Fitted") )
+
+```
+
+```{r}
+library(DHARMa)
+library(glmmTMB)
+library(car)
+library(effects)
+plot(substrate_depth~biomass, data = header_2)
+
+summary(lm(establishment_prop_Aug_25 ~ substrate_depth*species_pool, data = header_2))
+Anova(lm(establishment_prop_Aug_25 ~ substrate_depth*species_pool*functional_type, data = header_2))
+
+Anova(lm(establishment_prop_Aug_25 ~ substrate_depth*species_pool*functional_type+biomass, data = header_2))
+```
+
+```{r}
+plot(allEffects(lm(establishment_prop_Aug_25 ~ substrate_depth*species_pool*functional_type+biomass, data = header_2)))
+```
+
+```{r}
+plot(allEffects(lm(establishment_prop_Aug_25 ~ substrate_depth*species_pool*functional_type, data = header_2)))
+```
+
+```{r}
+plot(allEffects(lm(establishment_prop_Aug_25 ~ species_pool, data = header_2)))
+plot(allEffects(lm(establishment_prop_Aug_25 ~ species_pool*biomass, data = header_2)))
+summary(lm(establishment_prop_Aug_25 ~ biomass*species_pool, data = header_2))
+```
+
+
+## better code that can handle further extensions (more years in the future)
+```{r}
+calc_establishment <- function(df_sown, df_observed, year_label = NULL) {
+  
+  # Keep only plots shared with df_sown
+  plots_to_use <- intersect(colnames(df_sown), colnames(df_observed))
+  df_sown_sub <- df_sown[, plots_to_use, drop = FALSE]
+  df_obs_sub <- df_observed[, plots_to_use, drop = FALSE]
+  
+  # Convert to matrices and binary P/A
+  mat_sown <- ifelse(is.na(as.matrix(df_sown_sub)) | as.matrix(df_sown_sub) %in% c("0", "", "NA"), 0, 1)
+  mat_observed <- ifelse(is.na(as.matrix(df_obs_sub)) | as.matrix(df_obs_sub) %in% c("0", "", "NA"), 0, 1)
+  
+  species_list <- rownames(mat_sown)
+  out_list <- vector("list", length(species_list))
+  names(out_list) <- species_list
+  
+  # Loop per species
+  for (sp in species_list) {
+    sown_mask <- as.logical(mat_sown[sp, , drop = TRUE])
+    n_sown <- sum(sown_mask)
+    
+    if (n_sown == 0) {
+      n_established <- NA
+      rate <- NA
+    } else {
+      if (!(sp %in% rownames(mat_observed))) {
+        n_established <- 0
+      } else {
+        observed_in_sown <- mat_observed[sp, sown_mask, drop = TRUE]
+        n_established <- sum(as.integer(observed_in_sown == 1))
+      }
+      rate <- n_established / n_sown
+    }
+    
+    out_list[[sp]] <- list(species = sp,
+                           n_sown = n_sown,
+                           n_established = n_established,
+                           establishment_rate = rate)
+  }
+  
+  # Combine into data frame
+  res <- do.call(rbind, lapply(out_list, function(x) data.frame(x, stringsAsFactors = FALSE)))
+  
+  # Add year label if requested
+  if (!is.null(year_label)) res$year <- year_label
+  
+  return(res)
+}
+```
+
+```{r}
+# Year 1
+res_year1 <- calc_establishment(df_sown, df_observed, year_label = "Aug_25")
+
+# Year 2
+res_year2 <- calc_establishment(df_sown, df_observed2, year_label = "Apr_25")
+
+# Combine both years
+result_species <- rbind(res_year1, res_year2)
+print(result_species)
+```
+
+
+
+
+## plan my code 
+- convert to P/A and extract number of plots sown
+
+(already code available, "Vorkommen")
+
+
+- this information - make new df or add to df holding species information - that makes sense (todo- clean up)
+
+- load data with vegetation surveys - extract only those of survey (Aug_25)
+
+- tricky part compare matrices and count in those plots, were the species was also sown: for each species (col1/rownames) if species occurs (i.e. has a 1) in df1 (in any of the colums, colnames are plot_id´s) check in the column with the same plot_id (note! the matrices do not have the same amount of columns and not the same order, the index is given by plot_id) whether the species occurs; count the occurences (not total per row (i.e. per species, but only those cols where a 1 was given in df1!!)) 
+
+
+```{r}
+# Dummy data:
+# df_sown (df1): species x plots (1 = sown)
+df_sown <- data.frame(
+  plotA = c(0, 0, 1),
+  plotB = c(1, 1, 1),
+  plotC = c(1, 0, 0),
+  row.names = c("species1", "species2", "species3"),
+  check.names = FALSE
+)
+
+# df_observed (df2): species x plots (1 = observed)
+# Note: df_observed contains all plots from df_sown (plotA, plotB, plotC)
+# plus an extra plotD
+df_observed <- data.frame(
+  plotA = c(1, 1, 0),  # species2 occurs here, but species2 was NOT sown in plotA -> should NOT be counted
+  plotB = c(1, 0, 1),
+  #plotC = c(1, 1, 0),
+  plotD = c(0, 1, 1),  # extra plot (df_sown doesn't have plotD)
+  row.names = c("species1", "species2", "species3"),
+  check.names = FALSE
+)
+```
+
+```{r}
+# Find only plots that exist in BOTH data frames
+plots_to_use <- intersect(colnames(df_sown), colnames(df_observed))
+
+# Then safely subset
+df_obs_sub <- df_observed[, plots_to_use, drop = FALSE]
+df_sown_sub <- df_sown[, plots_to_use, drop = FALSE]
+```
+
+```{r}
+# important information: cols that exist in df_son, but are missing in df_observed
+setdiff(colnames(df_sown), colnames(df_observed))
+```
+
+```{r}
+# Convert to matrices
+mat_sown <- as.matrix(df_sown_sub)
+mat_observed <- as.matrix(df_obs_sub)
+
+# Convert all values to character (mixed types work)
+mat_sown_char <- as.character(mat_sown)
+mat_observed_char <- as.character(mat_observed)
+
+# Conversion rule:
+#  - "0", "", "NA", or NA → 0
+#  - anything else (any value or text) → 1
+mat_sown_num <- ifelse(is.na(mat_sown_char) | mat_sown_char %in% c("0", "", "NA"), 0, 1)
+mat_observed_num <- ifelse(is.na(mat_observed_char) | mat_observed_char %in% c("0", "", "NA"), 0, 1)
+
+# Preserve matrix dimensions and names
+dim(mat_sown_num) <- dim(mat_sown)
+dim(mat_observed_num) <- dim(mat_observed)
+rownames(mat_sown_num) <- rownames(mat_sown)
+colnames(mat_sown_num) <- colnames(mat_sown)
+rownames(mat_observed_num) <- rownames(mat_observed)
+colnames(mat_observed_num) <- colnames(mat_observed)
+
+# Convert to integer matrices for numeric operations
+mat_sown <- matrix(as.integer(mat_sown_num), nrow = nrow(mat_sown),
+                   dimnames = dimnames(mat_sown))
+mat_observed <- matrix(as.integer(mat_observed_num), nrow = nrow(mat_observed),
+                       dimnames = dimnames(mat_observed))
+
+```
+
+```{r}
+species_list <- rownames(mat_sown)
+out_list <- vector("list", length(species_list))
+names(out_list) <- species_list
+
+for (sp in species_list) {
+  # Logical vector of sown plots
+  sown_mask <- as.logical(mat_sown[sp, , drop = TRUE])
+  n_sown <- sum(sown_mask)
+  
+  if (n_sown == 0) {
+    out_list[[sp]] <- list(species = sp,
+                           n_sown = 0L,
+                           n_established = NA_real_,
+                           establishment_rate = NA_real_)
+    next
+  }
+  
+  # If species missing in observed data, assume not established anywhere
+  if (!(sp %in% rownames(mat_observed))) {
+    n_established <- 0L
+  } else {
+    observed_in_sown <- mat_observed[sp, sown_mask, drop = TRUE]
+    n_established <- sum(as.integer(observed_in_sown == 1))
+  }
+  
+  rate <- n_established / n_sown
+  
+  out_list[[sp]] <- list(species = sp,
+                         n_sown = as.integer(n_sown),
+                         n_established = as.integer(n_established),
+                         establishment_rate = as.numeric(rate))
+}
+
+# Combine into final data frame
+result_species <- do.call(rbind, lapply(out_list, function(x)
+  data.frame(species = x$species,
+             n_sown = x$n_sown,
+             n_established = x$n_established,
+             establishment_rate = x$establishment_rate,
+             stringsAsFactors = FALSE)))
+rownames(result_species) <- NULL
+```
+
+
+
+
+
+
+

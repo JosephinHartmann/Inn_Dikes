@@ -1,0 +1,401 @@
+---
+title: "Vegetation Analysis InnDikes"
+output: html_notebook
+---
+
+```{r}
+library(here)
+library(dplyr)
+library(readr)
+library(vegan)
+library(ggplot2)
+```
+
+## Methods
+Todo: write method section 
+
+## Analysis: Vegetation Development over time 
+### First year: compare seeded with early development
+### A) Descriptive (NMDS)
+### B) Model: is distance between seeded community (target) and established community affected by substrate depth or species pool?
+### C) TODO: add reference vegetation data set 
+```{r}
+# first year
+
+# include data
+Inn_Dike_species <- read.csv2(
+  here("data", "raw", "Inn_Dike_species.csv"),
+  row.names = 1,     # use first column as rownames
+  stringsAsFactors = FALSE,  # prevent automatic factor conversion
+  check.names = FALSE       # preserve original column names
+)
+
+# Check
+View(Inn_Dike_species)
+```
+
+## the data needs to be split into the two different species pools, otherwise the NMDS gets too little stress as species are occuring in too low frequency. 
+```{r}
+Inn_Dike_species <- as.data.frame(t(Inn_Dike_species))
+
+Inn_Dike_species_22 <- subset(Inn_Dike_species, pool == "r22")
+
+Inn_Dike_species_1A  <- subset(Inn_Dike_species, pool == "r1a")
+```
+
+
+```{r}
+# split data into species composition and header
+View(Inn_Dike_species_22)
+
+Inn_Dike_species_22_head <- Inn_Dike_species_22[,c(1:6)]
+View(Inn_Dike_species_22_head)
+
+Inn_Dike_species_22_specs <- Inn_Dike_species_22[,-c(1:6)]
+View(Inn_Dike_species_22_specs)
+
+species_names_22 <- names(Inn_Dike_species_22_specs)
+cols_original_22 <- rownames(Inn_Dike_species_22_specs)
+
+# Convert all values to numeric
+Inn_Dike_species_22_specs <- as.data.frame(lapply(Inn_Dike_species_22_specs, function(x) as.numeric(as.character(x))))
+View(Inn_Dike_species_22_specs)
+
+# Set species names as row names
+rownames(Inn_Dike_species_22_specs) <- cols_original_22
+
+Inn_Dike_species_22_specs <- as.data.frame(t(Inn_Dike_species_22_specs))
+
+#----
+
+View(Inn_Dike_species_1A)
+
+Inn_Dike_species_1A_head <- Inn_Dike_species_1A[,c(1:6)]
+View(Inn_Dike_species_1A_head)
+
+Inn_Dike_species_1A_specs <- Inn_Dike_species_1A[,-c(1:6)]
+View(Inn_Dike_species_1A_specs)
+
+species_names_1A <- names(Inn_Dike_species_1A_specs)
+cols_original_1A <- rownames(Inn_Dike_species_1A_specs)
+
+# Convert all values to numeric
+Inn_Dike_species_1A_specs <- as.data.frame(lapply(Inn_Dike_species_1A_specs, function(x) as.numeric(as.character(x))))
+View(Inn_Dike_species_1A_specs)
+
+# Set species names as row names
+rownames(Inn_Dike_species_1A_specs) <- cols_original_1A
+
+Inn_Dike_species_1A_specs <- as.data.frame(t(Inn_Dike_species_1A_specs))
+```
+
+
+# how frequent are species occuring? 
+```{r}
+Inn_Dike_species_22_specs$Vorkommen <- rowSums(Inn_Dike_species_22_specs > 0, na.rm = T)/ncol(Inn_Dike_species_22_specs)
+hist(Inn_Dike_species_22_specs$Vorkommen, nclass = 20)
+
+Inn_Dike_species_1A_specs$Vorkommen <- rowSums(Inn_Dike_species_1A_specs > 0, na.rm = T)/ncol(Inn_Dike_species_1A_specs)
+hist(Inn_Dike_species_1A_specs$Vorkommen, nclass = 20)
+```
+
+# cut species that are not occuring (TODO later: cut species at certain treshold)
+```{r}
+Inn_Dike_species_22_specs <- subset(Inn_Dike_species_22_specs, Vorkommen > 0)
+Inn_Dike_species_1A_specs <- subset(Inn_Dike_species_1A_specs, Vorkommen > 0)
+```
+
+
+# calculate ratio of each species for each plot - divide each value by sum per col
+```{r}
+# Step 1: compute column sums, ignoring NAs
+col_sums_22 <- colSums(Inn_Dike_species_22_specs, na.rm = TRUE)
+col_sums_1A <- colSums(Inn_Dike_species_1A_specs, na.rm = TRUE)
+
+# Step 2: compute ratio of each value to its column sum (×100 for percentage)
+Inn_Dike_species_22_ratio <- sweep(Inn_Dike_species_22_specs, 2, col_sums_22, FUN = "/")
+Inn_Dike_species_1A_ratio <- sweep(Inn_Dike_species_1A_specs, 2, col_sums_1A, FUN = "/")
+
+# View result
+View(Inn_Dike_species_22_ratio)
+View(Inn_Dike_species_1A_ratio)
+```
+
+```{r}
+Inn_Dike_species_22_ratio <- as.data.frame(t(Inn_Dike_species_22_ratio[,-90])) # adjust col-number; double check, must be 96 (seeded) plus 116 (vegetation) 
+Inn_Dike_species_1A_ratio <- as.data.frame(t(Inn_Dike_species_1A_ratio[,-c(1,97)]))
+```
+
+```{r}
+any(is.na(Inn_Dike_species_22_ratio))
+any(is.nan(as.matrix(Inn_Dike_species_22_ratio)))
+any(is.infinite(as.matrix(Inn_Dike_species_22_ratio)))
+```
+
+
+```{r}
+Inn_Dike_species_1A_ratio[is.na(Inn_Dike_species_1A_ratio)] <- 0
+Inn_Dike_species_22_ratio[is.na(Inn_Dike_species_22_ratio)] <- 0
+```
+
+```{r}
+View(Inn_Dike_species_1A_ratio)
+```
+
+```{r}
+NMDS_Inn_1A <- metaMDS(Inn_Dike_species_1A_ratio[-35,], k=2, trymax=100)
+```
+
+
+```{r}
+stressplot(NMDS_Inn_1A)
+```
+
+```{r}
+NMDS_Inn_1A
+```
+
+```{r}
+ordiplot(NMDS_Inn_1A)
+ordiplot(NMDS_Inn_1A, type = 't')
+```
+
+# prepare header data
+```{r}
+View(Inn_Dike_species_1A_head)
+Inn_Dike_species_1A_head <- as.data.frame(t(Inn_Dike_species_1A_head))
+```
+
+```{r}
+# Extract NMDS scores for sites
+scores_NMDS_1A <- as.data.frame(scores(NMDS_Inn_1A, display = "sites"))
+
+# Add grouping variable (e.g., Management type)
+scores_NMDS_1A$Group <- Inn_Dike_species_1A_head$timepoint # when header data is transposed correctly, timepoint is a col!
+
+# Plot NMDS with ellipses for each group
+ggplot(scores_NMDS_1A, aes(x = NMDS1, y = NMDS2, color = Group, fill = Group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(type = "t", level = 0.95, alpha = 0.2, geom = "polygon") +
+  theme_minimal(base_size = 14) +
+  labs(title = "NMDS Plot with Group Ellipses",
+       x = "NMDS1", y = "NMDS2") +
+  theme(legend.position = "right")
+```
+
+```{r}
+# Add grouping variable (e.g., Management type)
+scores_NMDS_1A$Group2 <- interaction(Inn_Dike_species_1A_head$timepoint, Inn_Dike_species_1A_head$trait_constraint)
+
+# Plot NMDS with ellipses for each group
+ggplot(scores_NMDS_1A, aes(x = NMDS1, y = NMDS2, color = Group2, fill = Group2)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(type = "t", level = 0.95, alpha = 0.2, geom = "polygon") +
+  theme_minimal(base_size = 14) +
+  labs(title = "NMDS Plot with Group Ellipses",
+       x = "NMDS1", y = "NMDS2") +
+  theme(legend.position = "right")
+```
+
+## prepare and expand head; 
+## tidy up todo: prepare one master header with all information; e.g. also the soil data etc. and use this from the beginning; 
+
+```{r}
+biomasse <- read_delim(
+  here("data", "raw", "biomasse.csv"),
+  delim = ";",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+View(biomasse)
+View(Inn_Dike_species_1A_head)
+```
+
+
+```{r}
+# plot_id is id_plot
+library(dplyr) # important to use dplyr, bc. it keeps the order!!!
+Inn_Dike_species_1A_head_merged <- Inn_Dike_species_1A_head %>%
+  left_join(biomasse, by = c("id_plot" = "plot_id"))
+
+View(Inn_Dike_species_1A_head_merged)
+```
+
+# test! this must look exactly the same as two junks above 
+```{r}
+# Add grouping variable (e.g., Management type)
+scores_NMDS_1A$Group_test <- Inn_Dike_species_1A_head_merged$timepoint # when header data is transposed correctly, timepoint is a col!
+
+# Plot NMDS with ellipses for each group
+ggplot(scores_NMDS_1A, aes(x = NMDS1, y = NMDS2, color = Group_test, fill = Group_test)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(type = "t", level = 0.95, alpha = 0.2, geom = "polygon") +
+  theme_minimal(base_size = 14) +
+  labs(title = "NMDS Plot with Group Ellipses",
+       x = "NMDS1", y = "NMDS2") +
+  theme(legend.position = "right")
+```
+
+```{r}
+# Use the function ordisurf to plot contour lines
+ordisurf(NMDS_Inn_1A,Inn_Dike_species_1A_head_merged$substrate_depth,main="",col="forestgreen")
+# Finally, display species on plot
+#orditorp(NMDS_Inn_1A,display="species",col="grey30",air=0.1,cex=1)
+```
+
+```{r}
+dist_cov_1A <- vegdist(Inn_Dike_species_1A_ratio, method = "bray")
+View(dist_cov_1A)
+
+bd_cov_1A <- betadisper(dist_cov_1A,Inn_Dike_species_1A_head_merged$substrate_depth, type = "median")
+View(bd_cov_1A)
+bd_cov_1A$distances
+
+plot(bd_cov_1A, ylab= "Bray-Curtis-Distance", xlab = "", label.cex = 0.5)
+legend("topright",
+       legend = levels(bd_cov_1A$group),
+       col = 1:length(levels(bd_cov_1A$group)))
+```
+# is the distance between seeded and grown !per plot! affected by substrate depth? 
+```{r}
+bd_cov_1A_plots <- betadisper(dist_cov_1A,Inn_Dike_species_1A_head_merged$id_plot, type = "median")
+View(bd_cov_1A_plots$group.distances)# these are the distances between the seed mix and the establishment for each plot
+bd_cov_1A_plots <- as.data.frame(bd_cov_1A_plots$group.distances)
+
+bd_cov_1A_plots <- bd_cov_1A_plots %>%
+  tibble::rownames_to_column(var = "id_plot")
+
+Inn_Dike_species_1A_head_merged <- Inn_Dike_species_1A_head_merged %>%
+  left_join(bd_cov_1A_plots, by = "id_plot")
+
+plot(Inn_Dike_species_1A_head_merged$substrate_depth,Inn_Dike_species_1A_head_merged$`bd_cov_1A_plots$group.distances`)
+```
+
+
+# NMDS for hay meadows 
+```{r}
+NMDS_Inn_22 <- metaMDS(Inn_Dike_species_22_ratio, k=2, trymax=100)
+```
+
+```{r}
+stressplot(NMDS_Inn_22)
+```
+
+```{r}
+NMDS_Inn_22
+```
+
+```{r}
+ordiplot(NMDS_Inn_22)
+```
+
+```{r}
+# Extract NMDS scores for sites
+scores_NMDS_22 <- as.data.frame(scores(NMDS_Inn_22, display = "sites"))
+
+View(Inn_Dike_species_22_head)
+Inn_Dike_species_22_head <- as.data.frame(t(Inn_Dike_species_22_head))
+
+# Add grouping variable (e.g., Management type)
+scores_NMDS_22$Group <- Inn_Dike_species_22_head$timepoint
+
+# Plot NMDS with ellipses for each group
+ggplot(scores_NMDS_22, aes(x = NMDS1, y = NMDS2, color = Group, fill = Group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(type = "t", level = 0.95, alpha = 0.2, geom = "polygon") +
+  theme_minimal(base_size = 14) +
+  labs(title = "NMDS Plot with Group Ellipses",
+       x = "NMDS1", y = "NMDS2") +
+  theme(legend.position = "right")
+```
+
+```{r}
+# Add grouping variable (e.g., Management type)
+scores_NMDS_22$Group2 <- interaction(Inn_Dike_species_22_head$timepoint, Inn_Dike_species_22_head$trait_constraint)
+
+# Plot NMDS with ellipses for each group
+ggplot(scores_NMDS_22, aes(x = NMDS1, y = NMDS2, color = Group2, fill = Group2)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(type = "t", level = 0.95, alpha = 0.2, geom = "polygon") +
+  theme_minimal(base_size = 14) +
+  labs(title = "",
+       x = "NMDS1", y = "NMDS2") +
+  theme(legend.position = "right")
+```
+
+## prepare and expand head; 
+## tidy up todo: prepare one master header with all information; e.g. also the soil data etc. and use this from the beginning;  
+```{r}
+View(Inn_Dike_species_22_head)
+
+
+# plot_id is id_plot
+library(dplyr) # important to use dplyr, bc. it keeps the order!!!
+Inn_Dike_species_22_head_merged <- Inn_Dike_species_22_head %>%
+  left_join(biomasse, by = c("id_plot" = "plot_id"))
+
+View(Inn_Dike_species_22_head_merged)
+ ```
+
+
+
+# is the distance between seeded and grown !per plot! affected by substrate depth? 
+```{r}
+dist_cov_22 <- vegdist(Inn_Dike_species_22_ratio, method = "bray")
+View(dist_cov_22)
+
+bd_cov_22 <- betadisper(dist_cov_22,Inn_Dike_species_22_head_merged$substrate_depth, type = "median")
+plot(bd_cov_22)
+```
+# is the distance between seeded and grown !per plot! affected by substrate depth? 
+```{r}
+bd_cov_22_plots <- betadisper(dist_cov_22,Inn_Dike_species_22_head_merged$id_plot, type = "median")
+View(bd_cov_22_plots$group.distances)# these are the distances between the seed mix and the establishment for each plot
+
+bd_cov_22_plots <- as.data.frame(bd_cov_22_plots$group.distances)
+colnames(bd_cov_22_plots)
+
+bd_cov_22_plots <- bd_cov_22_plots %>%
+  tibble::rownames_to_column(var = "id_plot")
+
+Inn_Dike_species_22_head_merged <- Inn_Dike_species_22_head_merged %>%
+  left_join(bd_cov_22_plots, by = "id_plot")
+
+View(Inn_Dike_species_22_head_merged)
+
+plot(Inn_Dike_species_22_head_merged$substrate_depth,Inn_Dike_species_22_head_merged$`bd_cov_22_plots$group.distances`)
+```
+
+
+# TODO: 
+# is the distance between seeded and grown affected by CV of seed mixture? 
+# Establishment rates and how they are affected?!
+
+```{r}
+ #load libraries
+ library(tidyverse)
+ library(sf)
+install.packages("raster")
+ library(raster)
+ library(rnaturalearth)
+install.packages("RefManageR")
+ library(RefManageR)
+```
+
+```{r}
+#Import data
+load(here("data", "raw", "sPlotOpen.RData"))
+ ls()
+ ## [1] "CWM_CWV.oa"
+ ## [4] "metadata.oa"
+ "DT2.oa"
+ "reference.oa"
+ "header.oa"
+ "sPlotOpen_citation
+```
+
+
+
+
+
+

@@ -1,0 +1,816 @@
+---
+title: "Methods_Verbund"
+author: "L.J.Hartmann"
+date: "2025-05-08"
+output: word_document
+---
+
+```{r}
+library(here)
+library(dplyr)
+library(readr)
+#library(openxlsx)
+library(tidyr)
+library(vegan)
+library(fundiversity)
+library(ggplot2)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generating Species Pool
+
+To generate seed mixtures suitable for re-establishing lowland mesic hay meadows and semi-dry calcareous grassland (target vegetation types), we assembled a initial species pool according to the following criteria: 
+
+a) species that belong to EUNIS code R22 or R1A (@chytryEUNISHabitatClassification2020; Arrhenatherion elatioris and Cirsio-Brachypodion pinnati according to @mucinaVegetationEuropeHierarchical2016). 
+b) species occurring in one or several of the following habitats of Central European vegetation (@ellenbergVegetationMitteleuropasMit2010): grasslands and heaths below the treeline (Ellenberg types 5.) hereafter generalist species, species occurring in nutrient-poor grasslands on base-rich substrates (Ellenberg 5.3.), species of mesic, lowland hay meadows and pastures (Ellenberg 5.4., 5.4.2.1, 5.4.2.3, ), species inhabiting warm and dry fringes (Ellenberg 6.1) 
+
+From this pool, we removed i) species with ruderal character (i.e., Ellenberg types 3.5 longliving ruderal vegetation; ii) nitrogen indicators (REF); iii) woody shrubs in accordance with german dike vegetation guidelines @kleber2017gestaltung; iv) regionally absent species, v) species, for which no autochthonous seeds (source area 17; @prasse2010development) were available, and vi) which are difficult to cultivate in seed farms (e.g., Carex sp. or cryptogams). 
+
+In total, we obtained 57 species. The hay meadow pool (S1) consisted of 30 species, while the dry grassland pool had 29 species (S2) (full species list see Appendix 1).
+
+The seeds were supplied by commercial producers (Krimmer GbR, Pulling; Rieger-Hoffmann GmbH, Blaufelden; Saaten-Zeller GmbH & Co KG, Eichenbühl-Guggenberg) of autochthonous seeds belonging to source area 17 (@prasse2010development). 
+
+```{r Appendix 1, echo=F,include=F, eval=F}
+species <- read.csv(here("data", "raw", "data_raw_compositions_sla_210_230.csv"))
+View(species)
+length(unique(species$accepted_name))
+
+S1a <- subset(species, pool == "r1a")
+S22 <- subset(species, pool =="r22")
+unique(S1a$accepted_name)
+unique(S22$accepted_name)
+
+common_species <- intersect(S1a$accepted_name, S22$accepted_name)
+print(common_species)
+
+S1a_grass <- subset(species, pool == "r1a" & grass ==1)
+unique(S1a_grass$accepted_name)
+S22_grass <- subset(species, pool =="r22" & grass == 1)
+unique(S22_grass$accepted_name)
+
+S1a_legume <- subset(species, pool == "r1a" & legume ==1)
+unique(S1a_legume$accepted_name)
+S22_legume <- subset(species, pool =="r22" & legume == 1)
+unique(S22_legume$accepted_name)
+
+S1a_herb <- subset(species, pool == "r1a" & grass ==0  & legume == 0 & hemiparasite == 0)
+unique(S1a_herb$accepted_name)
+S22_herb <- subset(species, pool =="r22" & grass ==0  & legume == 0 & hemiparasite == 0)
+unique(S22_herb$accepted_name)
+
+# Install if needed
+install.packages("openxlsx")
+
+# Load library
+library(openxlsx)
+
+# Subset the data
+S1a <- subset(species, pool == "r1a")
+S22 <- subset(species, pool == "r22")
+
+# Get unique accepted names
+df_S1a <- data.frame(accepted_name = unique(S1a$accepted_name))
+df_S22 <- data.frame(accepted_name = unique(S22$accepted_name))
+
+# Create a new workbook
+wb <- createWorkbook()
+
+# Add worksheets
+addWorksheet(wb, "r1a")
+addWorksheet(wb, "r22")
+
+# Write data to each sheet
+writeData(wb, sheet = "r1a", df_S1a)
+writeData(wb, sheet = "r22", df_S22)
+
+# Save workbook
+saveWorkbook(wb, "unique_species.xlsx", overwrite = TRUE)
+```
+
+
+## Generating Seed Mixtures
+From each species pool, 20 species were selected randomly for each plot following a pre-defined number of species within functional groups (stratified randomised selection; Tab. 1). 
+
+```{r table 1, echo=F}
+# Load required package
+library(knitr)
+
+# Define the table
+table_species_pool <- data.frame(
+  functional_group = c("grasses", "legumes", "forbs", "hemiparasites", "total"),
+  R1A = c(7, 3, 17, 2, 29),
+  R22 = c(7, 3, 18, 2, 30), 
+  no_per_seed_mix = c(7, 3, 9, 1, 20),
+  stringsAsFactors = FALSE
+)
+
+# Display the table
+kable(table_species_pool, caption = "Table 1: Functional Group Composition Across Pools")
+```
+
+### create functionally diverse species assemblages 
+
+We used the GIFT database @weigeltGIFTGlobalInventory2020 to obtain SLA and seedmass using the GIFT package @denelleGIFTPackageAccess2023. 
+
+Following REFERENCE we constrained the SLA for each of the two species pools (S1, hay meadow, S2 dry grassland) to a community weighted mean of 210 (hereafter low SLA) and 230 (herafter high SLA), resulting in four seed mixture types (S1 high, S1 low, S2 high, S2 low). Simultaneously we diversified on community weighted means for seedmass. 
+
+We created random, unique species assemblages for each plot (n=96) converging on specified (high and low) averages in trait values for specific leaf area (SLA) and simultaneously diverging across trait values for seed mass using the selectSpecies R function @laughlinGeneratingSpeciesAssemblages2018. 
+
+
+```{r TODO Background info for INTRO on SLA and seedmass, include=F}
+# in der Intro müssen SLA und seedmass als Faktoren eingeführt werden
+```
+
+```{r Background info for INTRO on WHY LAUGHLIN METHOD, include=F}
+# broader aim: restoring functionally resilient ecosystems
+# historical assemblages might be less well-adapted/might no longer be the best role-model due to environmental changes and species assemblages with specific traits to achieve higher functionality might offer great potential to react to challenges due to changing environments
+# e.g. drought resistance due to small SLA or other good example
+# problem: tendency to select assemblages of functionally similar species that are not functionally diverse!
+# (designing for one function in not generating resilience ...- examples)
+# but functional diversity is considered to bolster the stability of a community (exemplify)
+# Laughlin created a new method to select functionally-diverse species objectively, even in high dimensional cases when multiple traits are evaluated concurrently
+# derive an assemblage comformed with specified average trait values and simultaneously diversify on another trait
+
+# here we constrain our community to high and low average SLA values thus it might function under XXX DROUGHT?? XXX circumstances 
+# however, this alone could lead to problems in other circumstances (EXAMPLE)
+
+# With the predefined value of SLA 210 vs. 230 in community-weighted mean we believe to optimize survival in A GIVEN (XXX) environmental condition. 
+# 
+# USE EXAMPLES FROM THE LAUGHLIN PAPER 
+#
+```
+
+```{r, echo=F}
+seeds <- read.csv(here("data", "raw", "data_raw_compositions_sla_210_230.csv"))
+
+View(seeds)
+
+seeds$prop_seedmass <- exp(seeds$seedmass) * seeds$ratio
+seeds$prop_SLA <- exp(seeds$sla) * seeds$ratio
+seeds$pooltrait <- paste(seeds$pool,seeds$trait_constraint, sep="_")
+```
+
+
+```{r, echo=F}
+boxplot(prop_seedmass ~ pooltrait, data = seeds,
+        xlab = "Pool+SLA", ylab = "CWM Seedmass",
+        main = "Boxplot of Mean CWM Seedmass per Plot by Trait Pool"
+        )
+```
+
+
+```{r, echo=F, include=F }
+# Step 1: Aggregate comm-weighted-mean Seedmass by plot_id
+library(dplyr)
+
+# Group by plot_id and pooltrait (assuming one pooltrait per plot_id)
+agg_data <- seeds %>%
+  group_by(id_plot, pooltrait) %>%
+  summarise(cwmSeedmass = mean(prop_seedmass, na.rm = TRUE), .groups = "drop")
+```
+TODO: check whether this is correct. check, whether this is fine with our approach to diversify on seedmass. 
+
+```{r, echo=F}
+# Step 2: Create the boxplot using the aggregated data
+boxplot(cwmSeedmass ~ pooltrait, data = agg_data,
+        xlab = "Pool+SLA", ylab = "Mean CWM Seedmass",
+        main = "Boxplot of Mean CWM Seedmass per Plot by Trait Pool")
+```
+Figure: 
+The community-weighted means (CWM) of seed mass of the four seed mixtures used for the dike experiment. Seed mass was retrieved from the GIFT database @weigeltGIFTGlobalInventory2020 and weighted by each species´ ratio within each unique mixture.
+
+```{r}
+# Group by plot_id and pooltrait (assuming one pooltrait per plot_id)
+agg_data <- seeds %>%
+  group_by(id_plot, pooltrait) %>%
+  summarise(cwmSLA = mean(prop_SLA, na.rm = TRUE), .groups = "drop")
+```
+
+```{r}
+ggplot(seeds, aes(x = pool, y = sla)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Pool", y = "SLA") +
+  theme_minimal()
+```
+
+```{r, echo=F}
+# Step 2: Create the boxplot using the aggregated data
+boxplot(cwmSLA ~ pooltrait, data = agg_data,
+        xlab = "Pool+SLA", ylab = "CWM SLA",
+        main = "Boxplot of Mean CWM SLA per Plot by Trait Pool")
+```
+### coefficient of variation for ratio of each species 
+```{r}
+cv_by_species <- species %>%
+  group_by(accepted_name, trait_constraint, pool) %>%
+  summarise(
+    mean_value = mean(ratio),
+    sd_value = sd(ratio),
+    cv = (sd_value / mean_value) * 100
+  )
+
+# View the result
+print(cv_by_species)
+```
+
+
+### Variation in species ratio grouped by pool and trait
+```{r}
+boxplot(cv ~ trait_constraint*pool, data = cv_by_species)
+
+ggplot(cv_by_species, aes(x = interaction(trait_constraint, pool), y = cv)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "CV of species ratio") +
+  theme_minimal()
+```
+also very good visible in rank-abundance grafics (see GitHub)
+
+
+### how many seeds per species - variation? 
+```{r}
+View(seeds)
+seeds$gramm <- seeds$ratio*600
+seeds$no_seeds <- seeds$gramm/(exp(seeds$seedmass))
+```
+
+### coefficient of variation for amount of seeds for each species
+```{r}
+cv_seedno_species <- seeds %>%
+  group_by(accepted_name, trait_constraint, pool) %>%
+  summarise(
+    mean_value_noS = mean(no_seeds),
+    sd_value_noS = sd(no_seeds),
+    cv_no_seeds = (sd_value_noS / mean_value_noS) * 100,
+    family = first(family)
+  )
+
+# View the result
+print(cv_seedno_species)
+```
+
+### Variation in species ratio grouped by pool and trait
+```{r}
+ggplot(cv_seedno_species, aes(x = interaction(trait_constraint, pool), y = cv_no_seeds)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "CV of Number of Seeds") +
+  theme_minimal()
+```
+
+TODO ?? how about species evenness per plot calculated via Simpsons evenness using seedmass*ratio? WHY seedmass? better seednumber?
+
+
+
+Hypothesis: Myers & Harms (@myersSeedArrivalEcological2009) found that the effect of seed arrival on species richness was affected positively by species evenness in the pool of species added. 
+This can be either explained by reduced extinctions on the side of rare species (less stochasticity) or on the side of dominant species via competition
+
+```{r}
+boxplot(no_seeds ~ accepted_name, data = seeds,las=2, log="y", ylim = c(1, max(seeds$no_seeds, na.rm = TRUE)))
+```
+
+
+```{r}
+boxplot(cv_no_seeds ~ accepted_name, data = cv_seedno_species,las=2)
+boxplot(cv_no_seeds ~ family, data = cv_seedno_species,las=2)
+```
+
+
+
+### Sowing methods
+#### seed mixtures
+```{r}
+# seed mixtures were sown in April (07.04;10.04.) with a Handsaatgerät (Fa. ). Seed mixture itself was brought out in a density of 4g per m2 (REFS), for even spread of the seeds, we added corn grist (14 g/m2). The standard procedure in dike greening requires to ensure rapid greening. To this aim, we added 2g per m2 of a nurse species (Bromus hordeaceus). This annual Poaceae is removed by a selective high mowing before flowering. 
+```
+
+#### threshed seed-harvest material
+```{r}
+# For comparison with the method usually conducted by the local authorities to restore valuable grasslands on dikes, each block contained two additional plots (mown once vs. mown twice) were threshed seed-harvest material was applied. 
+# The material was produced my mowing of species-rich donor sites (reference sites) directly within grasslands that have later been destroyed by the measurements or close by. Sites with high target species abundances, high nature value and low to no occurrences of invasives or nitrophiluos species were mown in late summer (mid-August to September). To increase the amount of seeds harvested, mowing was conducted when species had seed set but not yet dispersed and in wet weather. The material was shredded, dried and stored for one winter. 
+```
+
+
+### method seed bank 
+```{r}
+#Samenbankversuch InnDeiche
+#
+#Im Zuge der Hochwasservorsorge wird der Inn –Deich bei Rosenheim zwischen A8 und VERBUND-Innkraftwerk Rosenheim, Ahornstr. 10 , 83101 Rohrdorf #erhöht und verbreitert (Abb.). 
+#Auf beiden Seiten (Thansauer Seite, Exposition Ost-Südost und Happinger Seite, Exposition West-Nordwest) wird dabei jeweils landseitig ein Versuch #zur Optimierung der Vegetationsoptimerung von der TU München, Lehrstuhl für Renaturierungsökologie durchgeführt (Abb.-Karte). 
+#Vor der Baumaßnahme fanden sich auf den Deichabschnitten Graslandhabitate, die XXX zugeordnet werden können (Appendix?; Abb.). 
+#Im Zuge der Deicherhöhung musste die dort vorhandene Vegetation zerstört werden, die Grasnarbe und der Oberboden wurden abgetragen.  Die Erde #wurde während der Baumaßnahme (Zeitraum xx – xx) auf Erdhaufen an einer nahe gelegenen Freiluft-Deponie gelagert. Nach Abschluss der Baumaßnahme #wurde die Deicherde wieder auf dem Kieskörper aufgebracht und mittels Baggerschaufeln glatt gezogen (Foto). 
+#Für das Experiment wurden im Feld je Exposition sechs verschiedene Substratdicken von <5cm bis zu 55cm von natürlicher Erde auf den Deichen #aufgebracht (Abb.). Die Übergänge zwischen zwei Substratdicken (sofern aneinandergrenzend) wurden ausgestrichen (Foto).  
+#Die Hangneigung der Deiche lag zwischen XX – XX. Die mächtigsten Substratdicken (>50cm) waren aufgrund der Hangneigung stark abrutschgefährdet. #Nachdem im März bei einem Starkregenfall das aufgebrachte, glatt gezogene (d.h. verfestigte), noch unbegrünte Substrat abrutschte, wurden solche #Mächtigen Auflagedicken vor allem auf stark geneigten Böschungen (Begriff?) von VERBUND und der ausführenden Erdbaufirma (Fa. Zosseder) als #ungeeignet eingestuft (pers. Mittl. 03/2025). 
+#Vor der Aussaat von optimierten Saatgutmischungen wurden Bodenproben von der aufgebrachten Deicherde genommen (Thansauer Seite: 07.04.2025; #Happinger Seite: 10.04. 2025). Auf der Thansauer Seite wurden je Plot (ca. 10 – 15m x 8 – 10 m; ca. 80 – 150 m²) 5 Stechzylinder á 3,5 cm #Innenduchmesser und 6 cm Länge Oberbodenerde entnommen. Auf der Happinger Seite wurden je zwei Plots zusammengelegt und entsprechend je 160 – 300 #m²  5 Stechzylinder á 3,5 cm Innenduchmesser und 6 cm Länge Oberbodenerde entnommen. Aus den 5 Stichen wurde jeweils eine Mischprobe gewonnen. 
+#Die Bodenproben wurden binnen weniger Stunden (< 5 h) in einen auf 3,2 °C geregelten, dunklen Klimaschrank gelegt und dort bis zum 12.05. #ununterbrochen gelagert. 
+```
+
+### method soil sampling
+```{r}
+# one composite sample (each mixed from XX subsamples taken evenly distributed over the block) per block to represent the average soil value of the sites taken in two different depths (n=24)
+# references for depths: grassworks-project: 0-10cm vs. 10-30 cm; 
+# @europeancommission.jointresearchcentre.instituteforenvironmentandsustainability.LUCASTopsoilSurvey2013
+# depths oriented at typcial rooting depths of grassland plants 
+# references: the majority of roots was found between 0 - 20 cm soil depths in extensively managed grasslands; Tasser et al. 2021; Fig. 3; nature; @tasserEvidenceImportanceLand2021
+# further reference with several grassland species, most of them also used in our experiment: the deep root fraction was ca. 22% of root biomass and was found in deeper soil layers between 30 - 50 cm; 78 % of roots were found in the top soil layer 0 - 30 cm; 
+# species investigated there: Agrostis stolonifera, Anthoxanthum odoratum, 
+#Arrhenatherum elatius, Briza media, Festuca rubra, Festuca 
+#pratensis, Phleum pratense, Trisetum flavescens and the forb 
+#species Achillea millefolium, Centaurea jacea, Galium mol
+#lugo, Leucanthemum vulgare, Leontodon hispidus, Prunella 
+#vulgaris, Sanguisorba officinalis and Ranunculus repens.
+```
+
+### method soil analysis and results (=characterization of soil type)
+```{r}
+## Notizen von der Besprechung mit Herrn Dr. Häusler 
+#Infos zum C/N Verhältnis: 
+# alle Proben sind sehr carbonathaltig; hinzu kommt, dass auch die Kiesfraktion aus Kalk besteht, was die Carbonatgehalte zusätzlich erhöht
+# mehr N als C = gut; mit Werten um 10 liegt guter Humus vor (für Äcker wären das gute Werte)
+# auffallend ist, dass tw. in sehr tiefen Schichten (hier 20-30 cm) noch hohe Humusgehalte vorliegen
+# Die Verteilung der Humusgehalte würde man so wie in Probe 1 zu Probe 2 eher erwarten
+#
+#Infos zur Textur: 
+# erwartbar/normal wäre 1/3 Kies zu 2/3 Oberboden im oberen Bereich (hier 2-7cm)
+# und das umgekehrte Verhältnis 2/3 Kies zu 1/3 Ober im Bereich von 20-30cm 
+# Die Proben 1&2 und 15&16 haben hinsichtlich der Textur die erwartbaren Verhältnisse 
+# Probe 23&24 dahingegen hat keine Unterschiede zwischen Grob und Feinfraktion
+# Die Proben bilden entlang des Substratgradienten eine Catena von Hangkuppe zu Kolluvium nach 
+# 
+# alle Proben sind Mittel- bis Feinsand-betont; 
+# Ton ist recht konstant gering, aber es gibt eine sehr leichte Tendenz (nicht als bias zu bezeichnen) dass eine InnSeite leicht höhere Tongehalte (um 8) aufweist als die andere (um 5).  Diese Tendenzen stuft Herr Häusler als sehr gering ein, v.a. wenn man bedenkt, dass sie mittels Fingerprobe generiert wurden. 
+#
+# Infos zu Nährstoffen 
+# 
+# ph-Wert kann als typisch für das Substrat betrachtet werden. 
+# Phosphat-Gehalte sind extrem niedrig - Phosphat-limitierter Boden; der Boden wurde noch nie gedüngt. 
+# Kalium ist zwar niedrig, es kann aber davon ausgegangen werden, dass sich im Schluss auch Mineralien befinden, die Kalium freisetzen
+# Mg hätte Herr Häusler mehr erwartet wegen Dolomit-Anteilen
+# Phosphat extrem gerin, Kalium normal, Mg erwartbar 
+# 
+```
+
+## method soil analysis
+```{r}
+# Load required package
+library(knitr)
+
+# Define the table
+table_soil_measurements <- data.frame(
+  variable = c("topsoil depth", "sampling depth", "pH", "Soil texture (sand, silt, clay)", "CN ratio", "CaCO3", "Humus", "N total", "P", "K", "Mg2+"),
+  unit = c("cm", "cm","" ,"wt % of fine soil (parts < 2 mm; not total soil sample)","","wt %","wt %","wt %", "$mg~100~g^{-1}$; in P205 equivalents", "$mg~100~g^{-1}$; in K2O equivalents","$mg~100~g^{-1}$"),
+  Method = c("Depth of soil applied on top of the gravel layer of the dikes (6 levels, <5 cm - 50 cm)", "Depth were soil sample was taken (2levels, 2-7 cm and 20-30 cm)","measured in 0.01 M CaCl2 with the VDLUFA method A 5.1.1 (VDLUFA, 2012)", "method according to DIN ISO 11277:2020-04 (2020) and using the manual texture method (Fingerproge) according to Bodenkundliche Kartieranleitung KA5:pages", "$C/N = C_{organic} / N_{total} = (C_{total} - C_{mineral}) / N_{total}$","$C_{mineral} x 8.33$", "$C_{organic} x 1.72 = (C_{total} - C_{mineral}) x 1.72$", "total nitrogen percentage; determined with a CN analyser by combustion at 1000 °C and gas chromatography", "measured in calcium acetate-lactate (CAL) extract; VDLUFA method A 6.2.1.1 (VDLUFA, 2012)", "measured in CAL extract; VDLUFA method A 6.2.1.1 (VDLUFA, 2012)", "measured in CAL extract; VDLUFA method A 6.2.1.1 (VDLUFA, 2012)"), 
+  stringsAsFactors = FALSE
+)
+
+# Display the table
+kable(table_soil_measurements, caption = "Table 1: Methods for the analysis of soil samples of the 6 dike blocks with different topsoil depth in two different expositions and two sampling depths (n= 24).") 
+
+#TODO: sources VDLUFA and DIN ISO, Bodenkundliche Kartieranleitung are missing. 
+```
+
+
+```{r}
+library(readr)
+id_soilsamples <- read_delim(here("data/raw/soil_analysis_2.CSV"),delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(id_soilsamples)
+id_soilsamples$CACO3 <- id_soilsamples$`C-550`*8.33
+
+# Reshape from wide to long format
+id_soilsamples_long <- id_soilsamples %>%
+  pivot_longer(cols = c(7,10,12,14:15, 17:20,28:33), names_to = "variable", values_to = "value")
+
+# Compare soil properties in expositions (i.e., Happinger and Thansauer site - rather a site than an exposition effect?)
+ggplot(id_soilsamples_long, aes(x = exposition, y = value, fill = exposition)) +
+  geom_boxplot() +
+  facet_wrap(~ variable, ncol = 4, scales = "free_y") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(x = "Exposition", y = "Value", title = "Soil Properties by Exposition")
+```
+
+
+Results soil properties comparing expositions (probably rather site effect than exposition effect)
+- texture: in southslope more variation; in general in both sides 1/3 - 2/3 ratio between coarse soil (Grobboden; particles larger than 2mm) and fine soil
+- texture more important to look at sampling depth
+- within the fine soil fraction, the Southslope has a larger amount of clay and silt but lower sand,while the Northslope has more sand. 
+
+- no differences in C/N ratio - in general almost no variability - TODO: what happens if "outlier" CN=8 is removed - more relative (but in general low) variability 
+- C-tot is larger in Southslope (Thansau), but N-tot is similar in both expositions - TODO: look at sampling depths or substrate depths?
+- organic carbon (C-org) is slightly higher and a little less variable in Southslope, but rather tendency than pattern
+- similar pattern for C-550
+- accordingly, the percentage of Carbon is slightly higher in Southslope (but still within a very narrow range of values in general 19% - 25 %) TODO: is this a relevant difference? 
+- N-total is comparable between the two slopes
+- Ratio of Humus is slightly higher in Southslope, but definetly rather related to sampling depth! low variablility and in general "normal" amount of Humus
+
+- nutrients: Southslope has slightly higher Mg (=bc. it has more silt and clay?) 
+- nutrients: K2O is slightly higher in Northslope
+- ph/CaCl: in general very small range of values, all around 7.4-7.5, very low variation in Southslope and slightly higher (but not relevant acc. to D.r Häusler)
+
+
+```{r}
+# Boxplots with facets
+ggplot(id_soilsamples_long, aes(x = interaction(exposition,sampling_depth), y = value, fill = interaction(exposition,sampling_depth))) +
+  geom_boxplot() +
+  facet_wrap(~ variable, ncol = 4, scales = "free_y") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(x = "Exposition", y = "Value", title = "Soil Properties by Exposition and sampling depth")
+```
+Results soil properties comparing different sampling depths (and expositions)
+- pattern for exposition and sampling depth are similar for coarse soil and fine soil. In general we find more nuanced differentiation towards 70 % fine soil and 30 % coarse soil within the upper 2-7cm (e.g. in the shallow sampling depth). In the deeper sampling depth there is higher variation between the samples (most probably driven by the factor substrate depth) 
+- silt ratio pattern is comparable for north and south with slightly higher silt within the shallow sampling depth (around 40 - 45 %) and less variation in the shallow sampling depth
+- regarding clay ratio, there is an exposition effect (but within a very narrow range regarding values acc. to Dr. Häusler); further, the Northslope has very low variation and low amount of clay, while the Southslope has larger variation within plots; 
+- on the contrary the sand ratio is higher in Northslope, in both sampling depths
+
+- Carbon total shows a exposition effect (but within very narrow ranges) with higher values in the South compared to the North; further, here the pattern between shallow and deeper sampling depth are (very slightly) reversed: in the north the deeper soil has slightly higher values, while in the south, the shallow samples are higher in C-tot
+- Nitrogen total is very similar both layers and exposition, but the deeper sampling depth in the North has comparably high variation
+--> this leads to high variation in this group (n-20-30) also for C/N ratio - TODO: is there a reason for this - which plot causes this variation?
+- the percentage of Carbon is a bit higher in the Southslope and in both groups, the deeper sampling depth has higher amounts of Carbon
+- the amount of Humus is comparable between all groups but (again) has higher variation in the deeper sampling depth of the Northslope
+
+- nutrients: K2O is almost steadily at 5 in shallow samples and has higher variation and little lower values in the deeper sampling depth
+- nutrients: Mg very similar in both expositions and both sampling depths
+- nutrients: pH very similar across all groups
+
+```{r}
+# Soil conditions depending on substrate and sampling depth
+ggplot(id_soilsamples_long, aes(x = interaction(substrate_depth,sampling_depth), y = value, fill = interaction(substrate_depth,sampling_depth))) +
+  geom_boxplot() +
+  facet_wrap(~ variable, ncol = 4, scales = "free_y") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(x = "Exposition", y = "Value", title = "Soil Properties by Exposition and substrate depth")
+```
+Soil properties depending on the substrate depth and the sampling depth:
+- organic carbon is high in all parts of the dike when the sampling depth is shallow. in plots with low substrate depth (<5 and 5-15), there are extremely low C-org amounts within the deeper samples; 
+- Humus percent perfectly mirrors those conditions
+- and, in a reversed pattern, percentages of Carbon are structured accordingly, with high amounts of Carbon in the deeper samples of thos eplots with low substrate amounts - this is bc. the samples where then already within the coarse section of the dike.
+- accordingly, the amount of coarse soil is very high in the deeper samples where the substrate is shallow and their amounts of fine soil are particularly low. 
+- it is obvious that the samples taken from the dike core instead of the substrate are differing in texture and nutrients; in the parts with low substrate application, the plants find highly heterogeneous conditions for shallow and deep roots.
+
+```{r}
+library(vegan)
+soilprop <- id_soilsamples[,c(7,10,12,14:15,17:20,28:33)]
+soil_env <- id_soilsamples[,c(3,5,6)]
+```
+
+
+# check for correlation of soil properties first to delete highly correlated
+```{r}
+library(corrplot)
+cor_matrix <- cor(soilprop, use = "pairwise.complete.obs", method = "pearson")
+corrplot(cor_matrix, method = "circle")
+```
+- do not include Carbon percent
+- do not include C organic
+
+```{r}
+soilprop <- soilprop[,c(1:3,5,7,9,12:15)]
+```
+
+
+## soil properties multifactorial
+```{r}
+PCA <- rda (soilprop, scale = TRUE)
+summary(PCA)
+
+loadings <- scores (PCA, choices= c(1:3), display = 'species', scaling = 0)
+loadings
+loadings_df <- as.data.frame(loadings)
+loadings_df <- round(loadings_df, 3)
+loadings_df$Label <- rownames(loadings_df)      # add rownames as a new column
+rownames(loadings_df) <- NULL                   # optional: remove old rownames
+
+
+pca_results <- tibble(
+  Label = c("Cumulative Proportion", "Eigenvalue", "Proportion Explained"),
+  PC1 = c(0.705, 7.045, 0.705),
+ PC2 = c(0.856, 1.512, 0.8558),
+  PC3 = c(0.911, 0.554, 0.911)
+)
+
+loadings_df <- bind_rows(loadings_df, pca_results)
+rownames(loadings_df) <- loadings_df$Label
+loadings_df$Label <- NULL
+
+knitr::kable(loadings_df, caption = "PCA species loadings for the first three axes")
+
+#TODO: rename colums for clean table
+```
+
+```{r}
+sort (abs (loadings[,1]), decreasing = TRUE)
+sort (abs (loadings[,2]), decreasing = TRUE)
+sort (abs (loadings[,3]), decreasing = TRUE)
+```
+Results PCA (TODO: mark in table)
+- strongest correlation with the PCA1 = N otal and CaCo3 
+- strongest correlation with the PCA2: pH and sand ratio
+-strongest correlation with the PCA3: clay ratio and K2O
+
+# how much variation is explained by topsoil depth, by sampling depth and by exposition?
+## first: descriptive approach 
+```{r}
+depth_factor <- as.factor(soil_env$sampling_depth)
+substrate_factor <- as.factor(soil_env$substrate_depth)
+exp_factor <- as.factor(soil_env$exposition)
+
+cols_depth <- c("brown", "grey")
+cols_exp <- c("blue", "red")
+pch_values <- c(19, 3)[depth_factor]
+
+biplot(PCA, display = "sites", scaling = "species")
+points(PCA, display = "sites", scaling = "species",
+       col = cols[depth_factor], pch = 19)
+legend("topright", legend = levels(depth_factor), col = cols, pch = 19)
+```
+- sampling depth is not highly influential, the four sites in the right part of the plot are those four samples where the sample was already reaching the dike 
+
+
+```{r}
+biplot(PCA, display = "sites", scaling = "species")
+points(PCA, display = "sites", scaling = "species",
+       col = cols[exp_factor], pch = 19)
+legend("topright", legend = levels(exp_factor), col = cols, pch = 19)
+```
+- exposition seems highly influential. The sites differ in ph and sand ratio. South exposition has more clay and slightly higher pH (very low range!) 
+
+```{r}
+biplot(PCA, display = "sites", scaling = "species")
+points(PCA, display = "sites", scaling = "species",
+       col = cols[exp_factor],
+       pch = pch_values)
+legend("topright",
+       legend = levels(exp_factor),
+       col = cols,
+       pch = 19,
+       title = "exposition")
+legend("topleft",
+       legend = levels(depth_factor),
+       pch = c(19, 3)[1:length(levels(depth_factor))],
+       title = "Sampling depth")
+```
+## what explains the variation in soil sampling data best? exposition, sampling depth, substrate depths
+```{r}
+RDA <- rda(soilprop ~ exposition+sampling_depth + substrate_depth, data=soil_env, scale = TRUE)
+RDA
+summary(RDA)
+
+# doing the same!
+correlations <- cor(model.matrix(RDA)[], scores(RDA, display = "lc"))
+round(correlations, 2)
+biplot_scores <- scores(RDA, display = "bp")
+biplot_scores
+
+
+anova(RDA)
+anova(RDA, by= "terms")
+
+ordiplot(RDA, display=c('si', 'cn'))
+text (RDA, display = 'cn', col = 'navy', cex = .5)
+
+varp <- varpart (soilprop,  ~ exposition, ~ sampling_depth, ~ substrate_depth,data = soil_env)
+varp
+```
+
+
+Results soil analysis: 
+Three quantitative explanatory variables (sampling depth, exposition each two leveled factorial and substrate depth a continuous variable) were included in a redundancy analysis. 
+The three variables explain 45 % of the variance. 
+The first constraint axis RDA1 explains 3.929/10 = 0.3929 (39 % of the variance) 
+The second constraint axis RDA2 explains 1.050/10 = 0.105 = 0.10 (10 % oft the variance)
+The third constraint axis RDA3 explains 0.039/ 10.000 = 0.0039 
+
+The first unconstrained axis (PCA1) 3.9/10.00 = 0.39 - this is much variance! there might be a strong (non included) variable structuring this data! 
+
+```{r}
+plot (varp, digits = 2, Xnames = c('exposition','sampling_depth', 'substrate_depth'), bg = c('navy', 'tomato',"grey"))
+```
+# TODO: consider, whether you should exclude the four samples that were actually taken from the dike gravel bc. they actually do not show the soil properties of the topsoil. 
+
+# same analysis for soil samples taken from the topsoil layer only, excluding those taken from dike gravel
+```{r}
+id_soilsamples <- read_delim(here("data/raw/soil_analysis_2.CSV"),delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(id_soilsamples)
+id_soilsamples$CACO3 <- id_soilsamples$`C-550`*8.33
+
+id_soilsamples <- id_soilsamples[-c(2,4,14,16),]
+
+
+soilprop <- id_soilsamples[,c(7,10,12,14:15,17:20,28:33)]
+soil_env <- id_soilsamples[,c(3,5,6)]
+
+soilprop <- soilprop[,c(1:3,5,7,9,12:15)]
+
+RDA <- rda(soilprop ~ exposition+sampling_depth + substrate_depth, data=soil_env, scale = TRUE)
+RDA
+summary(RDA)
+
+# doing the same!
+correlations <- cor(model.matrix(RDA)[], scores(RDA, display = "lc"))
+round(correlations, 2)
+biplot_scores <- scores(RDA, display = "bp")
+biplot_scores
+
+
+anova(RDA)
+anova(RDA, by= "terms")
+
+ordiplot(RDA, display=c('si', 'cn'))
+text (RDA, display = 'cn', col = 'navy', cex = .5)
+
+varp <- varpart (soilprop,  ~ exposition, ~ sampling_depth, ~ substrate_depth,data = soil_env)
+varp
+
+plot (varp, digits = 2, Xnames = c('exposition','sampling_depth', 'substrate_depth'), bg = c('navy', 'tomato',"grey"))
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+```
+
+## methods BIOMASS
+```{r}
+# sampling 
+# 
+# Aboveground (standing) biomass was sampled on 21 August 2025. All samples were collected on the same day to ensure comparability of biomass moisture content. Within each plot (n = 120), five 0.31 × 0.31 m (0.0961 m²) frames were randomly placed, maintaining a distance of 1 m from the plot edges. Vegetation within each frame was cut 5 cm above ground level. The fresh biomass from the five frames per plot was combined into a single composite sample. 
+# As fresh and dry biomass were highly correlated (SOURCE), we determined only fresh biomass weight by using a portable scale (accurate to the nearest gram).
+# 
+# data 
+biomasse <- read_delim(here("data", "raw", "biomasse.csv"), 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(biomasse)
+biomasse$functional_type[is.na(biomasse$functional_type)] <- "mix"
+biomasse$pooltype <- interaction(biomasse$functional_type, biomasse$species_pool)
+
+# first vizualisations
+# for better comparability scale the biomass measure up to g per m2 
+ggplot(biomasse, aes(x = exposition, y = biomass/0.0961)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "exposition", y = "biomass (g/m^2)") +
+  theme_minimal()
+
+ggplot(biomasse, aes(x = interaction(exposition, substrate_depth), y = biomass/0.0961)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "exposition and substrate depth", y = "biomass (g/m^2)") +
+  theme_minimal()
+
+ggplot(biomasse, aes(x = substrate_depth, y = biomass/0.0961)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "substrate depth", y = "biomass (g/m^2)") +
+  theme_minimal()
+
+ggplot(biomasse, aes(x = pooltype, y = biomass/0.0961)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "species pool x SLA", y = "biomass (g/m^2)") +
+  theme_minimal()
+
+ggplot(biomasse, aes(x = species_pool, y = biomass/0.0961)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "species pool", y = "biomass (g/m^2)") +
+  theme_minimal()
+
+# todo: compare to biomass in greenhouse. 
+
+# TODO: are certain first analysis (regression etc. possible, do them properly, also already prepare for adding biomass measures of other years)
+modelBM <- lm(biomass ~ substrate_depth*pooltype, data=biomasse)
+par(mfrow=c(2,2))
+plot(modelBM)
+
+library(glmmTMB)
+modelBMglmm <- glmmTMB(biomass ~ substrate_depth*pooltype, data=biomasse, family=gaussian)
+
+library(DHARMa)
+res = simulateResiduals(modelBMglmm)
+plot(res)
+
+par(mfrow = c(1, 2))
+plotResiduals(modelBMglmm, form = model.frame(modelBMglmm)$susbstrate_depth)
+plotResiduals(modelBMglmm, form = model.frame(modelBMglmm)$pooltype)
+
+
+library(car)
+Anova(modelBMglmm, type = "III")
+summary(modelBMglmm)
+
+
+library(effects)
+plot(allEffects(modelBM))
+```
+
+## Biomasse-Analysen nochmal ohne DRUSCHGUT-Plots
+```{r}
+biomasse2 <- biomasse
+
+biomasse2 <- biomasse %>% filter(species_pool != "DRUSCH")
+View(biomasse2)
+
+modelBM_2 <- lm(biomass ~ substrate_depth*species_pool*functional_type, data=biomasse2)
+par(mfrow=c(2,2))
+plot(modelBM_2)
+
+library(glmmTMB)
+modelBMglmm_2 <- glmmTMB(biomass ~ substrate_depth*species_pool*functional_type, data=biomasse2, family=gaussian)
+
+library(DHARMa)
+res_2 = simulateResiduals(modelBMglmm_2)
+plot(res_2)
+
+par(mfrow = c(1, 3))
+plotResiduals(modelBMglmm_2, form = model.frame(modelBMglmm_2)$susbstrate_depth)
+plotResiduals(modelBMglmm_2, form = model.frame(modelBMglmm_2)$functional_type)
+plotResiduals(modelBMglmm_2, form = model.frame(modelBMglmm_2)$species_pool)
+
+library(car)
+Anova(modelBMglmm_2, type = "III")
+summary(modelBMglmm_2)
+
+
+library(effects)
+plot(allEffects(modelBM_2))
+```
+Results Biomass yr 1: 
+Aboveground biomass increased with increasing substrate depth within all species pools and independently from community weighted mean of specific leaf area (functional type). 
+also within the Druschgut-group (decide which analysis is better)
+
+
+### mean root lengths according to our species pool - not very fruitful - search for better root-trait database 
+Mean rooting depths were calculated by averaging values for the trait "Rooting_depth" from the GRoot database Guerrero-Ramirez et al. 2020 @guerrero-ramirezGlobalRootTraits2021a for each species occurring in our species pool.
+NOTE: Rooting depth was available only for 15 species. Average rooting depth for the 15 species was 0.5m 
+```{r}
+roots <- read.csv(here("data", "raw", "GRooTFullVersion.csv"))
+View(roots)
+unique(roots$traitName)
+roots$accepted_name <- paste(roots$genus, roots$species, sep = " ")
+
+
+roots_length <- roots[,c(70,71,74)]
+View(roots_length)
+roots_length <- subset(roots_length, traitName == "Rooting_depth")
+unique(roots_length$traitName)
+unique(roots_length$accepted_name)
+
+roots_length_mean <- roots_length %>% group_by(accepted_name) %>% summarise(mean_root_length = mean(traitValue))
+
+View(roots_length_mean)
+species_ext <- left_join(species, roots_length_mean, by="accepted_name")
+
+species_ext_rootdata <- subset(species_ext, !is.na(mean_root_length))
+
+unique(species_ext_rootdata$accepted_name)
+
+mean(species_ext_rootdata$mean_root_length)
+
+summary_stats <- species_ext_rootdata %>%
+  group_by(pool, trait_constraint) %>%
+  summarise(
+    mean_root_length = mean(mean_root_length, na.rm = TRUE),
+    min_root_length = min(mean_root_length, na.rm = TRUE),
+    max_root_length = max(mean_root_length, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+```{r}
+trait_meta <- GIFT_traits_meta()
+trait_meta[which(trait_meta$Trait2 == "SLA_mean"), ] #4.1.3.
+```
+
+```{r}
+SLA <- GIFT_traits(trait_IDs = c("4.1.3"), agreement = 0.66,
+                      bias_ref = FALSE, bias_deriv = FALSE)
+
+SLA_raw <- GIFT_traits_raw(trait_IDs = c("4.1.3"))
+
+unique(SLA_raw$geo_entity_ref)
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,358 @@
+---
+title: "post_Laughlin"
+output: html_document
+---
+
+```{r}
+library(here)
+library(dplyr)
+library(readr)
+#library(openxlsx)
+library(tidyr)
+#install.packages("vegan")
+library(vegan)
+install.packages("fundiversity")
+library(fundiversity)
+library(ggplot2)
+```
+
+```{r}
+here()
+composition <- read_csv(here("data/raw/data_raw_compositions_sla_210_230.csv"))
+```
+
+```{r}
+# Create the new dataframe
+df_combined <- composition %>%
+  group_by(id_plot) %>%
+  mutate(
+    avg_SLA = mean((sla*ratio), na.rm = TRUE),
+    avg_seedmass = mean(seedmass, na.rm =TRUE),
+    pool = first(pool),
+    trait_constraint = first(trait_constraint),
+    seedmix_type = first(seedmix_type)
+  )
+
+df_wide <- df_combined %>%
+  select(id_plot, pool, trait_constraint, seedmix_type, avg_SLA, avg_seedmass,accepted_name, ratio) %>% 
+  pivot_wider(
+    names_from = accepted_name,   # each species becomes a column
+    values_from = ratio           # the cell value will be the ratio
+  )
+
+comp_env <- df_wide[,c(1:6)]
+comp_spec <- df_wide[,c(7:63)]
+comp_spec[is.na(comp_spec)] <- 0
+```
+
+
+## evenness of species calculated with their ratio 
+```{r}
+# Calculate inverse Simpson diversity for each site
+comp_env$inv_simpson_index <- diversity(comp_spec, index = "invsimpson")
+
+comp_env$simpson_evenness <- ifelse(
+  comp_env$pool == "r22",
+  comp_env$inv_simpson_index / 30,   # divide by 30 when pool == "r22"
+  comp_env$inv_simpson_index / 29    # divide by 29 otherwise
+)
+
+
+ggplot(comp_env, aes(x = interaction(trait_constraint, pool), y = simpson_evenness)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "Simpson evenness") +
+  theme_minimal()
+
+remarks: the plots of R1A_low are more even than all others. R22:low is very uneven. Further, within the groups the variation in evenness is heterogeneous, with r1a having particularly similar evenness and R22low having a very high variation regarding evenness.
+
+Hypothesis: Myers & Harms (@myersSeedArrivalEcological2009) found that the effect of seed arrival on species richness was affected positively by species evenness in the pool of species added. 
+--> this would influence the "performance" of our groups (and might be an issue of comparability) and would be a disadvantage of Laughlin algorithm. 
+
+background: The positive effect of higher evenness can be either explained by reduced extinctions on the side of rare species (less stochasticity) or on the side of dominant species via competition. 
+
+
+```{r}
+View(comp_spec)
+
+traits <- read_csv(
+  here("data", "processed", "data_processed_traits.csv"),
+  col_names = TRUE, na = c("na", "NA", ""), col_types =
+    cols(
+      .default = "?"
+    )      
+) %>%
+  filter(
+    !(accepted_name == "Papaver rhoeas") &
+      !(accepted_name == "Centaurea cyanus") &
+      !(ellenberg >= 5410 & ellenberg < 5420) |
+      is.na(ellenberg)
+  ) %>%
+  select(
+    accepted_name, ellenberg, R1A, R22, both, sla, height, seedmass, family,
+    available, company, taxonomic_status
+  ) %>%
+  filter(available == 1 & !(taxonomic_status == "Illegitimate")) # Update available seeds from Saaten-Zeller!!!
+
+seedmass <- as.data.frame(traits[c(1,8)])
+rownames(seedmass) <- seedmass[[1]]   # use first column as row names
+seedmass <- seedmass[c(2)]           # remove the first column
+
+seedmass_funcrich <- fd_fric(seedmass, comp_spec)
+
+seedmass_funcrich$site <- as.double(seedmass_funcrich$site)
+comp_env_2 <- left_join(comp_env,seedmass_funcrich, by = c("id_plot" = "site"))
+
+ggplot(comp_env_2, aes(x = interaction(trait_constraint, pool), y = FRic)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "Functional_Richness_seedmass_fundiv") +
+  theme_minimal()
+```
+
+
+```{r}
+seedmass_funcdivergence <- fd_fdiv(seedmass, comp_spec)
+
+seedmass_funcdivergence$site <- as.double(seedmass_funcdivergence$site)
+comp_env_2 <- left_join(comp_env,seedmass_funcdivergence, by = c("id_plot" = "site"))
+
+ggplot(comp_env_2, aes(x = interaction(trait_constraint, pool), y = FDiv)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "Functional_Divergence_seedmass_fundiv") +
+  theme_minimal()
+```
+
+
+
+```{r}
+seedmass_sla <- as.data.frame(traits[c(1,6,8)])
+rownames(seedmass_sla) <- seedmass_sla[[1]]   # use first column as row names
+seedmass_sla <- seedmass_sla[c(2,3)]           # remove the first column
+
+seedmass_SLA_funcrich <- fd_fric(seedmass_sla, comp_spec)
+
+seedmass_SLA_funcrich$site <- as.double(seedmass_SLA_funcrich$site)
+comp_env_2 <- left_join(comp_env,seedmass_SLA_funcrich, by = c("id_plot" = "site"))
+
+ggplot(comp_env_2, aes(x = interaction(trait_constraint, pool), y = FRic)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "Functional_Richness_seedmass_fundiv") +
+  theme_minimal()
+```
+
+
+###similar analysis (does this make sense?): evenness of seedmass distribution within the groups
+
+
+## df for species from R22 only (needed for later analyis)
+```{r}
+df_wide_R22 <- df_combined %>%
+  filter(pool == "r22") %>%   # keep only rows where pool == "r22"
+  select(id_plot, pool, trait_constraint, seedmix_type, avg_SLA, avg_seedmass, accepted_name, ratio) %>%
+  pivot_wider(
+    names_from = accepted_name,   # each species becomes a column
+    values_from = ratio           # cell values are ratios
+  )
+
+comp_env_R22 <- df_wide_R22[,c(1:6)]
+comp_spec_R22 <- df_wide_R22[,c(7:36)]
+comp_spec_R22[is.na(comp_spec_R22)] <- 0
+```
+
+## df for species fron R1A only (needed for later analyis)
+```{r}
+df_wide_R1a <- df_combined %>%
+  filter(pool == "r1a") %>%   # keep only rows where pool == "r22"
+  select(id_plot, pool, trait_constraint, seedmix_type, avg_SLA, avg_seedmass, accepted_name, ratio) %>%
+  pivot_wider(
+    names_from = accepted_name,   # each species becomes a column
+    values_from = ratio           # cell values are ratios
+  )
+
+comp_env_R1a <- df_wide_R1a[,c(1:6)]
+comp_spec_R1a <- df_wide_R1a[,c(7:35)]
+comp_spec_R1a[is.na(comp_spec_R1a)] <- 0
+```
+
+
+```{r}
+spe.log <- log1p(comp_spec)  # species data are in percentage scale which is strongly rightskewed, better to transform them
+spe.hell <- decostand (spe.log, 'hell')  # we are planning to do tb-RDA, this is Hellinger pre-transformation
+
+#again for R22 only
+spe.log_R22 <- log1p(comp_spec_R22)  # species data are in percentage scale which is strongly rightskewed, better to transform them
+spe.hell_R22 <- decostand (spe.log_R22, 'hell')  # we are planning to do tb-RDA, this is Hellinger pre-transformation
+
+#again for R1A only
+spe.log_R1A <- log1p(comp_spec_R1a)  # species data are in percentage scale which is strongly rightskewed, better to transform them
+spe.hell_R1A <- decostand (spe.log_R1A, 'hell')  # we are planning to do tb-RDA, this is Hellinger pre-transformation
+```
+
+```{r}
+tbPCA <- rda(spe.hell, data = comp_env)  # calculate tb-PCA with two explanatory variables
+tbPCA
+summary(tbPCA)
+
+seedmix <- as.factor(comp_env$seedmix_type)
+
+# Create the base plot without drawing points
+plot(tbPCA, display = "sites", type = "n", ylim=c(-0.6,0.8), choices=c(1,2))
+points(tbPCA, display = "sites", col = seedmix, pch = 19)
+legend("topright", legend = levels(seedmix), col = 1:length(levels(seedmix)), pch = 19)
+```
+
+
+```{r}
+tbRDA_pool <- rda(spe.hell ~ pool, data = comp_env)  # calculate tb-RDA with two explanatory variables
+tbRDA_pool
+summary(tbRDA_pool)
+
+seedmix <- as.factor(comp_env$seedmix_type)
+
+# Create the base plot without drawing points
+plot(tbRDA_pool, display = "sites", type = "n", ylim=c(-0.6,0.8), choices=c(1,2))
+points(tbRDA_pool, display = "sites", col = seedmix, pch = 19)
+legend("topright", legend = levels(seedmix), col = 1:length(levels(seedmix)), pch = 19)
+
+# === Add centroids for the categorical constraining variable ===
+centroids <- vegan::scores(tbRDA, display = "cn")  # cn = constraining variables
+# Only extract rows related to your categorical factor (e.g., seedmix_type)
+centroids_cat <- centroids[grep("pool", rownames(centroids)), ]
+points(centroids_cat, pch = 3, cex = 1.2, lwd = 2)  # cross symbols for centroids
+text(centroids_cat, labels = rownames(centroids_cat), pos = 3, cex = 0.8)
+
+bp_scores <- scores(tbRDA, display = "bp")*0.6  # get arrows (biplot scores)
+arrows(0, 0, bp_scores[1, 1], bp_scores[1, 2],length = 0.1, angle=20, col = "blue", lwd = 1.5)
+text(0, -0.5, labels = "avg_SLA", col = "blue")
+```
+
+```{r}
+tbRDA <- rda(spe.hell ~ pool+trait_constraint, data = comp_env)  # calculate tb-RDA with two explanatory variables
+tbRDA
+summary(tbRDA)
+
+ordiplot(tbRDA)
+
+
+seedmix <- as.factor(comp_env$seedmix_type)
+
+# Create the base plot without drawing points
+plot(tbRDA, display = "sites", type = "n", ylim=c(-0.6,0.8), choices=c(1,2))
+points(tbRDA, display = "sites", col = seedmix, pch = 19)
+legend("topright", legend = levels(seedmix), col = 1:length(levels(seedmix)), pch = 19)
+
+# === Add centroids for the categorical constraining variable ===
+centroids <- vegan::scores(tbRDA, display = "cn")  # cn = constraining variables
+# Only extract rows related to your categorical factor (e.g., seedmix_type)
+centroids_cat <- centroids[grep("pool", rownames(centroids)), ]
+points(centroids_cat, pch = 3, cex = 1.2, lwd = 2)  # cross symbols for centroids
+text(centroids_cat, labels = rownames(centroids_cat), pos = 3, cex = 0.8)
+
+bp_scores <- scores(tbRDA, display = "bp")*0.6  # get arrows (biplot scores)
+arrows(0, 0, bp_scores[1, 1], bp_scores[1, 2],length = 0.1, angle=20, col = "blue", lwd = 1.5)
+text(0, -0.5, labels = "avg_SLA", col = "blue")
+```
+```{r}
+tbRDA_SLA <- rda(spe.hell ~ avg_SLA, data = comp_env)  # calculate tb-RDA with two explanatory variables
+tbRDA_SLA
+summary(tbRDA_SLA)
+
+
+seedmix <- as.factor(comp_env$seedmix_type)
+
+# Create the base plot without drawing points
+plot(tbRDA_SLA, display = "sites", type = "n", ylim=c(-0.6,0.8), choices=c(1,2))
+points(tbRDA_SLA, display = "sites", col = seedmix, pch = 19)
+legend("topright", legend = levels(seedmix), col = 1:length(levels(seedmix)), pch = 19)
+```
+
+## TODO: I think this needs to be a NMDS. 
+```{r}
+tbPCA_R22 <- rda(spe.hell_R22)  # PCA
+
+# Combine two columns into a single factor
+grouping <- interaction(comp_env_R22$pool, comp_env_R22$trait_constraint)
+
+# Assign colors (unique per group)
+group_colors <- as.numeric(grouping)  # numeric levels → used as color indices
+
+# Plot
+ordiplot(tbPCA_R22, display = "si", type = "n")
+points(tbPCA_R22, display = "si", col = group_colors, pch = 19)
+
+# Add legend
+legend("topright",
+       legend = levels(grouping),
+       col = 1:length(levels(grouping)),
+       pch = 19)
+```
+
+```{r}
+tbPCA_R1a <- rda(spe.hell_R1A)  # PCA
+
+# Combine two columns into a single factor
+grouping <- interaction(comp_env_R1a$pool, comp_env_R1a$trait_constraint)
+
+# Assign colors (unique per group)
+group_colors <- as.numeric(grouping)  # numeric levels → used as color indices
+
+# Plot
+ordiplot(tbPCA_R1a, display = "si", type = "n")
+points(tbPCA_R1a, display = "si", col = group_colors, pch = 19)
+
+# Add legend
+legend("topright",
+       legend = levels(grouping),
+       col = 1:length(levels(grouping)),
+       pch = 19)
+```
+
+```{r}
+str(df_wide)
+set.seed(30)
+
+df_wide[is.na(df_wide)] <- 0
+
+com_hel <- decostand(log1p(df_wide[,-1]), 'hellinger', na.rm = T)
+sum(is.infinite(as.matrix(com_hel)))
+sum(is.na(com_hel))
+
+
+tb_PCA_seeds <- rda(com_hel)
+ordiplot(tb_PCA_seeds)
+stressplot(tb_PCA_seeds)
+
+ordi <- metaMDS(
+df_wide,
+distance = "bray",
+binary = TRUE,
+na.rm = TRUE,
+try = 20,
+previous.best = TRUE)
+
+ordiplot(ordi)
+
+#ordi <- metaMDS(
+#  data_species,
+#  distance = "bray",
+#  binary = TRUE,
+#  na.rm = TRUE,
+#  try = 20,
+#  previous.best = TRUE
+#  )
+#save(ordi, file = here("outputs", "models", "model_nmds.Rdata"))
+base::load(here("outputs", "models", "model_nmds.Rdata"))
+ordi
+stressplot(ordi)
+```
+
+```{r}
+install.packages("Select")
+```
+
+
+
+

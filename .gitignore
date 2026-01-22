@@ -1,0 +1,80 @@
+# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj.user/
+# Keep the main project file
+!Inn_Dikes.Rproj
+
+# RStudio
+.Rproj.user/
+*.sublime-project
+*.sublime-workspace
+
+# R Markdown
+*.html
+*.nb.html
+*.md
+!README.md
+!GITHUB_SETUP.md
+!PROJECT_STRUCTURE.md
+
+# Output files
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.tiff
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.pptx
+
+# But keep data/raw and data/processed structure
+!data/raw/**
+!data/processed/**
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+~$*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.bak
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Package files
+*.tar.gz
+*.zip
+!ESy-master.zip
+
+# Environment
+.Renviron
+.Rprofile
+
+# Cache
+.cache/
+renv/
+
+# Large data files (uncomment if needed)
+# data/raw/*.RData
+# data/raw/*.rda
+

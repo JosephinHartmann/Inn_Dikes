@@ -1,0 +1,178 @@
+---
+title: "How is diversity affected?"
+output: html_notebook
+---
+
+# Possible Questions:
+# How is diversity affected by number of species sown?
+# How is diversity affected by substrate depth? 
+
+```{r setup}
+library(here)
+```
+
+```{r}
+Inn_Dike_species <- read.csv2(
+  here("data", "raw", "Inn_Dike_species.csv"),
+  row.names = 1,     # use first column as rownames
+  stringsAsFactors = FALSE,  # prevent automatic factor conversion
+  check.names = FALSE       # preserve original column names
+)
+
+# Check
+View(Inn_Dike_species)
+```
+
+```{r}
+Inn_Dike_species_pa <- Inn_Dike_species
+
+# Convert rows 7–172 to character to avoid factor problems
+temp <- as.data.frame(lapply(Inn_Dike_species[7:172, ], function(x) as.character(x)))
+
+# Now perform the correct PA conversion
+Inn_Dike_species_pa[7:172, ] <- ifelse(
+  is.na(temp) |
+    temp == "0" |
+    temp == ""   |
+    temp == "NA",
+  0,
+  1
+)
+View(Inn_Dike_species_pa)
+```
+
+```{r}
+col_sums_PA <- colSums(Inn_Dike_species_pa[7:172, ] == 1, na.rm = TRUE)
+# Add as last row
+Inn_Dike_species_pa["species_number", ] <- col_sums_PA
+```
+
+```{r}
+Inn_Dike_species_paT <- as.data.frame(t(Inn_Dike_species_pa[c(1:6,173),]))
+header_2 <- full_join(header_new, plot_summary_year1, by="plot")
+View(header_2)
+```
+
+```{r}
+header_new <- read.csv2(
+  here("data", "raw", "biomasse.csv"),
+  stringsAsFactors = FALSE,  # prevent automatic factor conversion
+  check.names = FALSE       # preserve original column names
+)
+
+# Check
+View(header_new)
+```
+
+```{r}
+names(header_new)
+names(header_new)[7] <- "id_plot"
+
+header_2 <- full_join(header_new, Inn_Dike_species_paT, by="id_plot")
+View(header_2)
+```
+
+```{r}
+header_2 <- full_join(header_2, plot_summary_year1, by=c("id_plot"="plot"))
+header_2$species_number <- as.numeric(header_2$species_number)
+```
+
+```{r}
+# 1. Summarize data: mean & SE for each depth × species_pool
+df_diversity <- header_2 %>%
+  group_by(substrate_depth, species_pool) %>%
+  summarise(
+    mean_est = mean(species_number, na.rm = TRUE),
+    se_est   = sd(species_number, na.rm = TRUE) /
+               sqrt(n()),
+    .groups = "drop"
+  )
+
+# 2. Plot mean ± SE for each group (species_pool)
+ggplot(df_diversity, 
+       aes(x = substrate_depth, 
+           y = mean_est, 
+           color = factor(species_pool))) +
+
+  #geom_line(size = 1) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = T)+
+
+  # Standard error bars
+  geom_errorbar(aes(ymin = mean_est - se_est,
+                    ymax = mean_est + se_est),
+                width = 0.1,
+                linewidth = 0.8) +
+
+  labs(color = "Species Pool",
+       y = "species number (mean ± SE)",
+       x = "Substrate Depth") +
+
+  theme_bw()
+```
+
+```{r}
+# 2. Plot mean ± SE for each group (species_pool)
+ggplot(df_diversity, 
+       aes(x = substrate_depth, 
+           y = mean_est, 
+           color = factor(species_pool))) +
+
+  #geom_line(size = 1) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = T)+
+
+  # Standard error bars
+  geom_errorbar(aes(ymin = mean_est - se_est,
+                    ymax = mean_est + se_est),
+                width = 0.1,
+                linewidth = 0.8) +
+
+  labs(color = "Species Pool",
+       y = "species number (mean ± SE)",
+       x = "Substrate Depth") +
+
+  theme_bw()
+```
+```{r}
+Inn_Dike_species_T <- as.data.frame(t(Inn_Dike_species))
+
+Inn_Dike_species_T <- Inn_Dike_species_T %>%
+  mutate(across(7:172, as.numeric))
+
+
+species_env <- Inn_Dike_species_T[,c(1:6)]
+species_spec <- Inn_Dike_species_T[,c(7:172)]
+species_spec[is.na(species_spec)] <- 0
+```
+
+
+## evenness of species calculated with their ratio 
+```{r}
+# Calculate inverse Simpson diversity for each site
+species_env$inv_simpson_index <- diversity(species_spec, index = "invsimpson")
+
+View(species_env)
+
+# divide by spec number
+comp_env$simpson_evenness <- ifelse(
+  comp_env$pool == "r22",
+  comp_env$inv_simpson_index / 30,   # divide by 30 when pool == "r22"
+  comp_env$inv_simpson_index / 29    # divide by 29 otherwise
+)
+
+
+ggplot(comp_env, aes(x = interaction(trait_constraint, pool), y = simpson_evenness)) +
+  geom_boxplot(outlier.shape = NA) +  # hide default outliers
+  geom_jitter(width = 0.2, alpha = 0.5, color = "blue") +  # add points
+  labs(x = "Trait Constraint × Pool", y = "Simpson evenness") +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
