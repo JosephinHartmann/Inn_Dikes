@@ -1,0 +1,66 @@
+# Analysis: Average Germination Rate per Sown Plot
+
+## Overview
+This analysis calculates the expected average germination rate for each sown plot by combining:
+1. Species-level germination rates from laboratory tests (germination_rate_100)
+2. Species composition ratios for each plot (from Inn_Dike_species.csv)
+
+## Methodology
+
+### Data Sources
+- **Species germination rates**: `output/germination_rates_per_species.csv`
+  - Contains germination_rate_100 for each species (calculated from 4 petri dishes: 2 from AB campaign + 2 from CD campaign)
+- **Plot species composition**: `data/raw/Inn_Dike_species.csv`
+  - Contains species ratios (proportions) for each plot
+  - Metadata: pool (r1a, r22), trait_constraint (high, low), seedmix_type, timepoint, year
+
+### Calculation Method
+For each plot, the average germination rate is calculated as:
+```
+avg_germination_rate = sum(species_ratio × germination_rate_100) / sum(species_ratios)
+```
+
+This is a **weighted average**, where each species' germination rate is weighted by its proportion in the seed mix.
+
+### Filtering
+- Only plots with `year == 0` (seeded plots) are included
+- Only species with available `germination_rate_100` are used in calculations
+- Plots with no matching species will have `NA` for avg_germination_rate
+
+## Results
+
+### Output Files
+- `output/plot_average_germination_rates.csv`: Main results table with:
+  - Plot metadata (id_plot, pool, trait_constraint, seedmix_type, timepoint, year)
+  - avg_germination_rate: Calculated weighted average germination rate
+  - n_species_matched: Number of species in plot that had germination rate data
+  - total_ratio_matched: Sum of ratios for matched species (shows coverage)
+
+### Figures
+- `figures/germination_rate_by_pool.png`: Boxplot comparing germination rates between pools (r1a vs r22)
+- `figures/germination_rate_by_seedmix_type.png`: Boxplot comparing germination rates across seed mix types
+
+## Interpretation Notes
+
+- The germination rates represent **expected** germination based on laboratory tests
+- Actual field germination may differ due to environmental factors
+- Plots with higher species diversity in the seed mix may have more robust germination rates
+- Differences between pools or seed mix types may reflect:
+  - Species composition differences
+  - Inherent germination capacity of selected species
+  - Seed quality and viability
+
+## Next Steps / Questions to Explore
+
+1. Compare expected vs. observed germination rates in the field
+2. Analyze relationship between avg_germination_rate and:
+   - Substrate depth
+   - Biomass production
+   - Species richness in established communities
+3. Investigate which species contribute most to plot-level germination rates
+4. Assess whether trait constraints (high vs. low) affect germination success
+
+## Date
+Generated: 2025-01-XX
+Script: `analyses/germination_rates_pool_type_plot.R`
+

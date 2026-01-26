@@ -1,0 +1,14 @@
+Figure: germination_rate_by_seedmix_type
+
+Description:
+Boxplot showing the distribution of average germination rates per plot across different seed mix types. Seed mix types combine species pool (r1a or r22) with trait constraint (high or low). Each plot represents a sown plot with its calculated average germination rate.
+
+Details:
+Data source: Calculated from species germination rates (germination_rate_100) weighted by species ratios in each plot.
+Seed mix types: r1a_high, r1a_low, r22_high, r22_low
+Filtered for: year == 0 (seeded plots only)
+Method: Weighted average germination rate = sum(species_ratio × germination_rate_100) for all species in plot
+
+Generated from: Z:/VERBUND_MAC/R/Inn_Dikes
+Date: 2026-01-26
+

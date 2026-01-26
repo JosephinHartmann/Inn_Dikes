@@ -1,0 +1,14 @@
+Figure: germination_rate_by_pool
+
+Description:
+Boxplot showing the distribution of average germination rates per plot across different species pools (r1a and r22). Each plot represents a sown plot with its calculated average germination rate based on the weighted species composition and individual species germination rates from germination tests.
+
+Details:
+Data source: Calculated from species germination rates (germination_rate_100) weighted by species ratios in each plot.
+Number of plots: r1a = 48, r22 = 48
+Filtered for: year == 0 (seeded plots only)
+Method: Weighted average germination rate = sum(species_ratio × germination_rate_100) for all species in plot
+
+Generated from: Z:/VERBUND_MAC/R/Inn_Dikes
+Date: 2026-01-26
+
