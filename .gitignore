@@ -33,14 +33,27 @@
 *.docx
 *.pptx
 
+# But allow CSV files in output folder (germination rates, etc.)
+!output/*.csv
+
 # But allow figures README and captions
 !figures/README.md
 !figures/captions/
 !figures/captions/*.txt
 
+# Allow output README and descriptions
+!output/README.md
+!output/descriptions/
+!output/descriptions/*.txt
+!output/*.txt
+
 # But keep data/raw and data/processed structure
 !data/raw/**
 !data/processed/**
+
+# Allow output descriptions (similar to figure captions)
+!output/descriptions/
+!output/descriptions/*.txt
 
 # OS
 .DS_Store
