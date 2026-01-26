@@ -14,6 +14,14 @@ This folder contains figures generated from the analyses.
 - **[RDA_seed_mix.png](RDA_seed_mix.png)** - RDA analysis of seed mixtures.
   - [Caption details](captions/RDA_seed_mix.txt)
 
+### Germination Rates
+
+- **[germination_rate_by_pool.png](germination_rate_by_pool.png)** - Boxplot showing average germination rates per plot by species pool (r1a vs r22).
+  - [Caption details](captions/germination_rate_by_pool.txt)
+
+- **[germination_rate_by_seedmix_type.png](germination_rate_by_seedmix_type.png)** - Boxplot showing average germination rates per plot by seed mix type.
+  - [Caption details](captions/germination_rate_by_seedmix_type.txt)
+
 ---
 
 ## Adding New Figures
